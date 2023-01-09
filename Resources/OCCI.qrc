@@ -1,0 +1,5 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource> 
+        <file>icons/OCCIWorkbench.svg</file>
+    </qresource>
+</RCC> 
