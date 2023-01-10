@@ -13,10 +13,7 @@ class CollapsibleWidget(QtGui.QWidget):
         super(CollapsibleWidget, self).__init__(parent)
 
         # Styling for the toggle button
-        self.toggle_button_css = "border:none;background-color:#D8D8D8;font-size: 14px;height:10px;"
-
-        # Set the layout for the overall collapsible widget
-        self.setStyleSheet("padding:0px;margin:0px;")
+        self.toggle_button_css = "border:none;background-color:#D8D8D8;font-size: 14px;"
 
         # Get the parent width, if it exists
         if parent != None:
@@ -24,10 +21,12 @@ class CollapsibleWidget(QtGui.QWidget):
 
         # A VBox layout is needed to arrange the controls top to bottom
         main_layout = QtGui.QVBoxLayout()
+        main_layout.setAlignment(QtCore.Qt.AlignTop)
 
         # We need a collapse/expand button at the very top of this widget
         self.toggle_widget = QtGui.QWidget()
         self.toggle_widget.setStyleSheet(self.toggle_button_css)
+        self.toggle_widget.setMaximumHeight(30)
         self.toggle_layout = QtGui.QGridLayout()
 
         # The text button
@@ -56,6 +55,8 @@ class CollapsibleWidget(QtGui.QWidget):
 
         self.setLayout(main_layout)
 
+        self.is_hidden = False
+
 
     def add_widget(self, widget):
         """
@@ -64,10 +65,33 @@ class CollapsibleWidget(QtGui.QWidget):
         """
         self.container_layout.addWidget(widget)
 
+        # Work-around to make sure the layout looks correct to the user
+        self.toggle_widgets()
+        self.toggle_widgets()
+
+
+    def add_layout(self, layout):
+        """
+        Wrapper of the Qt method addLayout which allows QLayouts to be nested.
+        """
+        self.container_layout.addLayout(layout)
+
 
     def toggle_widgets(self):
         """
         Handles resizing the control so that all of its child controls except
         for the toggle button are hidden.
         """
-        print("HERE")
+
+        # If we need to hide, set height to 0 and give a visual indication with the arrow
+        if self.is_hidden == True:
+            height = self.container_layout.sizeHint().height()
+            self.toggle_button_arrow.setArrowType(QtGui.Qt.UpArrow)
+            self.is_hidden = False
+        else:
+            height = 0
+            self.toggle_button_arrow.setArrowType(QtGui.Qt.DownArrow)
+            self.is_hidden = True
+
+        # Set the height of the widget
+        self.container_widget.setFixedHeight(height)
