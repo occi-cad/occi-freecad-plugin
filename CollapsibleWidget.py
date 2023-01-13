@@ -26,7 +26,7 @@ class CollapsibleWidget(QtGui.QWidget):
         # We need a collapse/expand button at the very top of this widget
         self.toggle_widget = QtGui.QWidget()
         self.toggle_widget.setStyleSheet(self.toggle_button_css)
-        self.toggle_widget.setMaximumHeight(30)
+        self.toggle_widget.setMaximumHeight(35)
         self.toggle_layout = QtGui.QGridLayout()
 
         # The text button

@@ -1,4 +1,5 @@
 repositories:
   - name: ArchiYou Components
+    host_name: Archiyou
     host_url: https://archiyou.com/
     models_url: https://occi.archiyou.nl
