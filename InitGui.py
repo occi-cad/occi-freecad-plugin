@@ -219,7 +219,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Button to add and configure the component
         component_btn_layout = QtGui.QHBoxLayout()
-        component_btn = QtGui.QPushButton(text="Add and configure")
+        component_btn = QtGui.QPushButton(text="Add Component")
         component_btn.clicked.connect(self.LoadComponent)
         component_btn_layout.addStretch()
         component_btn_layout.addWidget(component_btn)
@@ -274,7 +274,8 @@ class OCCIWorkbench ( Workbench ):
         update_layout = QtGui.QHBoxLayout()
         auto_update_chk = QtGui.QCheckBox(text="auto update")
         update_layout.addWidget(auto_update_chk)
-        update_btn = QtGui.QPushButton(text="Update")
+        update_btn = QtGui.QPushButton(text="Update Component")
+        update_btn.clicked.connect(self.UpdateComponent)
         update_layout.addWidget(update_btn)
         self.config_controls_layout.addLayout(update_layout)
 
@@ -580,12 +581,33 @@ class OCCIWorkbench ( Workbench ):
         return None
 
 
+    def DownloadModel(self, base_url):
+        """
+        Handles the task of downloading an OCCI component.
+        """
+        import tempfile
+        import requests
+
+        # Get the STEP download URL with current parameters
+        download_url = self.BuildSTEPURL(base_url)
+
+        # We need a temporary file to download the STEP file into
+        self.temp_file = tempfile.NamedTemporaryFile(suffix='.step')
+
+        # Request the STEP download from the OCCI server and account for large file size
+        with requests.get(download_url, stream=True) as r:
+            r.raise_for_status()
+            with open(self.temp_file.name, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+        return self.temp_file.name
+
+
     def LoadComponent(self):
         """
         Loads a specific component into the current document.
         """
-        import tempfile
-        import requests
 
         # Get the information for the selected component
         name, author = self.FindSelectedComponent()
@@ -593,19 +615,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Make sure there was a row selected
         if name != None and author != None:
-            # Get the STEP download URL with current parameters
-            base_url = json_result['url']
-            download_url = self.BuildSTEPURL(base_url)
-
-            # We need a temporary file to download the STEP file into
-            temp_file = tempfile.NamedTemporaryFile(suffix='.step')
-
-            # Request the STEP download from the OCCI server and account for large file size
-            with requests.get(download_url, stream=True) as r:
-                r.raise_for_status()
-                with open(temp_file.name, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
+            step_file_path = self.DownloadModel(json_result['url'])
 
             # If there is not an active document, add one
             is_new_doc = False
@@ -618,13 +628,13 @@ class OCCIWorkbench ( Workbench ):
             # Add a feature object and load the step into it
             new_feature = ad.addObject("Part::Feature", name)
             new_feature.Label = name + "_" + author
-            new_feature.ViewObject.ShapeColor = (0.0, 0.9, 0.9)
+            new_feature.ViewObject.ShapeColor = (0.0, 1.0, 0.5)
             new_feature.ViewObject.Transparency = 0
 
             # Load the STEP file into a FreeCAD Shape to display it
             import Part
             new_shape = Part.Shape()
-            new_shape.read(temp_file.name)
+            new_shape.read(step_file_path)
             new_feature.Shape = new_shape
             ad.recompute()
 
@@ -635,6 +645,35 @@ class OCCIWorkbench ( Workbench ):
 
         else:
             print("Please select a component in order to configure and add it.")
+
+
+    def UpdateComponent(self):
+        """
+        Handles the task of updating a component that is already in the view.
+        """
+
+        # If there is no active document, there is nothing to update
+        ad = FreeCAD.activeDocument()
+        if ad == None:
+            self.LoadComponent()
+            return
+
+        # Get the information for the selected component
+        name, author = self.FindSelectedComponent()
+        json_result = self.FindMatchingJSON(name, author)
+
+        # Make sure there was a row selected
+        if name != None and author != None:
+            step_file_path = self.DownloadModel(json_result['url'])
+
+            # Find the the matching object in the active document
+            feature = ad.getObjectsByLabel(name + "_" + author)[0]
+            if feature != None:
+                import Part
+                new_shape = Part.Shape()
+                new_shape.read(step_file_path)
+                feature.Shape = new_shape
+                ad.recompute()
 
 
     def ClearResultsTableHighlights(self):
