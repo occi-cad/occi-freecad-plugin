@@ -198,7 +198,6 @@ class OCCIWorkbench ( Workbench ):
         search_btn.clicked.connect(self.SearchComponents)
         search_layout.addWidget(search_btn)
         comps_controls_layout.addLayout(search_layout)
-        # components_widget.add_layout(search_layout)
 
         # Label that tells the user how many results were returned
         self.results_num_lbl = QtGui.QLabel(text="")
@@ -497,10 +496,49 @@ class OCCIWorkbench ( Workbench ):
                         self.results_num_lbl.setText("Search error")
 
 
-    def LoadComponent(self):
+    def BuildSTEPURL(self, base_url):
         """
-        Loads a specific component into the current document.
+        Builds the URL to grab the OCCI component STEP file with the
+        parameter values set.
         """
+        from PySide import QtGui
+
+        download_url = base_url
+
+        # Step through the parameters table, adding names and values
+        for row_index in range(0, self.params_tbl.rowCount()):
+            name_widget = self.params_tbl.cellWidget(row_index, 0)
+            value_widget = self.params_tbl.cellWidget(row_index, 2)
+
+            # Check to see if we have reached the last line
+            if name_widget == None and value_widget == None:
+                break
+            else:
+                # If this is the first parameter, add the question mark
+                if row_index == 0:
+                    download_url += "?"
+                else:
+                    download_url += "&"
+
+                # We have to extract the value different ways from different controls
+                if isinstance(value_widget, QtGui.QSpinBox) or isinstance(value_widget, QtGui.QDoubleSpinBox):
+                    value = value_widget.value()
+                else:
+                    value = value_widget.text()
+
+                download_url += name_widget.text().split("(")[0].strip().replace(" ", "+") + "=" + str(value)
+
+        return download_url
+
+
+    def FindSelectedComponent(self):
+        """
+        Finds the highlighted component in the components table and returns
+        the name and author of a match. Returns None for both if nothing no
+        row is highlighted.
+        """
+        name = None
+        author = None
 
         # Get any selected rows
         selected_rows = self.results_tbl.selectedIndexes()
@@ -511,7 +549,90 @@ class OCCIWorkbench ( Workbench ):
             # If there is something in the row, extract data from the row
             name_txt = self.results_tbl.cellWidget(selected_row, 0)
             if name_txt != None:
-                print(name_txt.text())
+                name = name_txt.text()
+            author_txt = self.results_tbl.cellWidget(selected_row, 1)
+            if author_txt != None:
+                author = author_txt.text()
+
+        return (name, author)
+
+
+    def FindMatchingJSON(self, name, author):
+        """
+        Finds a match in the returned JSON result and returns it
+        so that it can be queried.
+        """
+
+        # Make sure we have some search results loaded
+        # If there are search results, look for the matching object in them
+        if self.json_search_results != None:
+            # Keeps track of any units used
+            units_used = ""
+            default_preset = {}
+
+            # Look through all of the results
+            for result in self.json_search_results:
+                # See if we have a match
+                if name != None and result['name'] == name and author != None and result['author'] == author:
+                    return result
+
+        # If no match was found, tell the caller by returning None
+        return None
+
+
+    def LoadComponent(self):
+        """
+        Loads a specific component into the current document.
+        """
+        import tempfile
+        import requests
+
+        # Get the information for the selected component
+        name, author = self.FindSelectedComponent()
+        json_result = self.FindMatchingJSON(name, author)
+
+        # Make sure there was a row selected
+        if name != None and author != None:
+            # Get the STEP download URL with current parameters
+            base_url = json_result['url']
+            download_url = self.BuildSTEPURL(base_url)
+
+            # We need a temporary file to download the STEP file into
+            temp_file = tempfile.NamedTemporaryFile(suffix='.step')
+
+            # Request the STEP download from the OCCI server and account for large file size
+            with requests.get(download_url, stream=True) as r:
+                r.raise_for_status()
+                with open(temp_file.name, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+            # If there is not an active document, add one
+            is_new_doc = False
+            ad = FreeCAD.activeDocument()
+            if ad == None:
+                FreeCAD.newDocument("untitled occi component")
+                ad = FreeCAD.activeDocument()
+                is_new_doc = True
+
+            # Add a feature object and load the step into it
+            new_feature = ad.addObject("Part::Feature", name)
+            new_feature.Label = name + "_" + author
+            new_feature.ViewObject.ShapeColor = (0.0, 0.9, 0.9)
+            new_feature.ViewObject.Transparency = 0
+
+            # Load the STEP file into a FreeCAD Shape to display it
+            import Part
+            new_shape = Part.Shape()
+            new_shape.read(temp_file.name)
+            new_feature.Shape = new_shape
+            ad.recompute()
+
+            # If we just created a document, then auto-fit everything
+            if is_new_doc:
+                Gui.activeDocument().activeView().viewIsometric()
+                Gui.SendMsgToActiveView("ViewFit")
+
         else:
             print("Please select a component in order to configure and add it.")
 
@@ -635,86 +756,83 @@ class OCCIWorkbench ( Workbench ):
 
         # Make sure we have some search results loaded
         # If there are search results, look for the matching object in them
-        if self.json_search_results != None:
-            # Keeps track of any units used
+        name, author = self.FindSelectedComponent()
+        result = self.FindMatchingJSON(name, author)
+        if result != None:
             units_used = ""
             default_preset = {}
 
-            # Look through all of the results
-            for result in self.json_search_results:
-                # See if we have a match
-                if name_txt != None and result['name'] == name_txt and author_txt != None and result['author'] == author_txt:
-                    # Step through all of the parameters and add them to the table
-                    row_index = 0
-                    for param in result['params'].keys():
-                        # Save the default for each parameter
-                        default_preset[param] = result['params'][param]['default']
+            # Step through all of the parameters and add them to the table
+            row_index = 0
+            for param in result['params'].keys():
+                # Save the default for each parameter
+                default_preset[param] = result['params'][param]['default']
 
-                        if not result['params'][param]['units'] in units_used:
-                            if units_used != "":
-                                units_used += "," + result['params'][param]['units']
-                            else:
-                                units_used += result['params'][param]['units']
+                if not result['params'][param]['units'] in units_used:
+                    if units_used != "":
+                        units_used += "," + result['params'][param]['units']
+                    else:
+                        units_used += result['params'][param]['units']
 
-                        # Add the name widget in the first column
-                        name_lbl = QtGui.QLabel(text=result['params'][param]['name'] + " (" + result['params'][param]['units'] + ")")
-                        name_lbl.setAlignment(QtCore.Qt.AlignCenter)
-                        self.params_tbl.setCellWidget(row_index, 0, name_lbl)
+                # Add the name widget in the first column
+                name_lbl = QtGui.QLabel(text=result['params'][param]['name'] + " (" + result['params'][param]['units'] + ")")
+                name_lbl.setAlignment(QtCore.Qt.AlignCenter)
+                self.params_tbl.setCellWidget(row_index, 0, name_lbl)
 
-                        # Add the description widget in the second column
-                        desc_lbl = QtGui.QLabel(text=result['description'])
-                        desc_lbl.setAlignment(QtCore.Qt.AlignCenter)
-                        self.params_tbl.setCellWidget(row_index, 1, desc_lbl)
+                # Add the description widget in the second column
+                desc_lbl = QtGui.QLabel(text=result['description'])
+                desc_lbl.setAlignment(QtCore.Qt.AlignCenter)
+                self.params_tbl.setCellWidget(row_index, 1, desc_lbl)
 
-                        # Add the value widget in the last column
-                        if result['params'][param]['type'] == 'number' and isinstance(result['params'][param]['default'], int):
-                            value_widget = QtGui.QSpinBox()
-                            value_widget.setValue(int(result['params'][param]['default']))
-                            value_widget.setRange(int(result['params'][param]['start']), int(result['params'][param]['end']))
-                            value_widget.setSingleStep(int(result['params'][param]['step']))
-                            self.params_tbl.setCellWidget(row_index, 2, value_widget)
-                        elif result['params'][param]['type'] == 'number' and isinstance(result['params'][param]['default'], float):
-                            value_widget = QtGui.QDoubleSpinBox()
-                            value_widget.setValue(float(result['params'][param]['default']))
-                            value_widget.setRange(float(result['params'][param]['start']), float(result['params'][param]['end']))
-                            value_widget.setSingleStep(float(result['params'][param]['step']))
-                            self.params_tbl.setCellWidget(row_index, 2, value_widget)
+                # Add the value widget in the last column
+                if result['params'][param]['type'] == 'number' and isinstance(result['params'][param]['default'], int):
+                    value_widget = QtGui.QSpinBox()
+                    value_widget.setValue(int(result['params'][param]['default']))
+                    value_widget.setRange(int(result['params'][param]['start']), int(result['params'][param]['end']))
+                    value_widget.setSingleStep(int(result['params'][param]['step']))
+                    self.params_tbl.setCellWidget(row_index, 2, value_widget)
+                elif result['params'][param]['type'] == 'number' and isinstance(result['params'][param]['default'], float):
+                    value_widget = QtGui.QDoubleSpinBox()
+                    value_widget.setValue(float(result['params'][param]['default']))
+                    value_widget.setRange(float(result['params'][param]['start']), float(result['params'][param]['end']))
+                    value_widget.setSingleStep(float(result['params'][param]['step']))
+                    self.params_tbl.setCellWidget(row_index, 2, value_widget)
 
-                        row_index += 1
+                row_index += 1
 
-                    # Let the user know what was selected
-                    self.selected_comp_lbl.setText('"' + result["name"] + '" component selected')
-                    self.model_info_lbl.setText("Code CAD engine: " + result['script_cad_language'] + " - Author: " + result['author'] + " - Units: " + units_used)
-                    self.source_info_lbl.setText('Source: <a href="' + result["url"] + '">link</a>')
+            # Let the user know what was selected
+            self.selected_comp_lbl.setText('"' + result["name"] + '" component selected')
+            self.model_info_lbl.setText("Code CAD engine: " + result['script_cad_language'] + " - Author: " + result['author'] + " - Units: " + units_used)
+            self.source_info_lbl.setText('Source: <a href="' + result["url"] + '">link</a>')
 
-                    # There should always be a default preset
-                    self.presets_info_lbl.setVisible(False)
-                    default_btn = QtGui.QPushButton(text="Default", objectName="default")
-                    self.presets["default"] = default_preset
-                    default_btn.clicked.connect(partial(self.HandlePresetButton, default_btn))
-                    self.presets_layout.addWidget(default_btn, 0, 0, 1, 1, QtCore.Qt.AlignCenter)
+            # There should always be a default preset
+            self.presets_info_lbl.setVisible(False)
+            default_btn = QtGui.QPushButton(text="Default", objectName="default")
+            self.presets["default"] = default_preset
+            default_btn.clicked.connect(partial(self.HandlePresetButton, default_btn))
+            self.presets_layout.addWidget(default_btn, 0, 0, 1, 1, QtCore.Qt.AlignCenter)
 
-                    # Step through all of the other presets and add them
-                    row = 0
-                    col = 1
-                    for preset in result["param_presets"].keys():
-                        # Advance to the next row, if needed
-                        if col % 4 == 0:
-                            row += 1
-                            col = -1
+            # Step through all of the other presets and add them
+            row = 0
+            col = 1
+            for preset in result["param_presets"].keys():
+                # Advance to the next row, if needed
+                if col % 4 == 0:
+                    row += 1
+                    col = -1
 
-                        col += 1
+                col += 1
 
-                        # Object name for button based on row/column so we can use it as a key
-                        self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn_" + str(row) + "_" + str(col)))
+                # Object name for button based on row/column so we can use it as a key
+                self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn_" + str(row) + "_" + str(col)))
 
-                        # Save the preset associated with this button
-                        self.presets["btn_" + str(row) + "_" + str(col)] = result["param_presets"][preset]
+                # Save the preset associated with this button
+                self.presets["btn_" + str(row) + "_" + str(col)] = result["param_presets"][preset]
 
-                        # Pass this button to its signal slot
-                        self.presets_controls[-1].clicked.connect(partial(self.HandlePresetButton, self.presets_controls[-1]))
+                # Pass this button to its signal slot
+                self.presets_controls[-1].clicked.connect(partial(self.HandlePresetButton, self.presets_controls[-1]))
 
-                        self.presets_layout.addWidget(self.presets_controls[-1], row, col, 1, 1, QtCore.Qt.AlignCenter)
+                self.presets_layout.addWidget(self.presets_controls[-1], row, col, 1, 1, QtCore.Qt.AlignCenter)
 
 
 Gui.addWorkbench(OCCIWorkbench())
