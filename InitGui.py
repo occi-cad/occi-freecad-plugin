@@ -170,6 +170,7 @@ class OCCIWorkbench ( Workbench ):
         self.add_txt.setPlaceholderText("New OCCI URL")
         add_layout.addWidget(self.add_txt)
         add_btn = QtGui.QPushButton(text="Add Respository")
+        add_btn.clicked.connect(self.AddRepository)
         add_btn.setMinimumHeight(30)
         add_btn.setStyleSheet("background-color:#DDDDDD;")
         add_layout.addWidget(add_btn)
@@ -406,6 +407,81 @@ class OCCIWorkbench ( Workbench ):
         Used to toggle the configuration widgets.
         """
         self.conf_widget_item.setExpanded(not self.conf_widget_item.isExpanded())
+
+
+    def AddRepository(self):
+        """
+        Loads the data for the given repository and adds it to the table.
+        """
+        import requests
+        import json
+        from PySide import QtGui, QtCore
+
+        # Get the repository URL entered by the user
+        repo_url = self.add_txt.text()
+
+        # Let the user know about common errors
+        if repo_url == "":
+            print("Please enter a Repository URL")
+            return
+        elif not repo_url.startswith("https://"):
+            print("Only https repositories are supported")
+            return
+
+        # Attempt to load the URL
+        response = requests.get(repo_url)
+        if response.status_code == 200:
+            # Attempt to parse the response into JSON
+            server_info = json.loads(response.content)
+
+            # Check to make sure the data has the appropriate fields
+            if not "library" in server_info or not "maintainer" in server_info:
+                print("The OCCI repository is not presenting the correct data to be added")
+                return
+
+            # Find the end of the repositories table so we can add an entry
+            row_count = self.repos_tbl.rowCount()
+            for row_index in range(0, row_count):
+                # If there is nothing in the row, we know it is ready to be filled
+                chkbox = self.repos_tbl.cellWidget(row_index, 0)
+                if chkbox == None:
+                    new_row_index = row_index
+                    break
+
+            # Add a new set of widgets to the last line
+            # The use checkbox
+            new_chkbox = QtGui.QCheckBox(Checked=True)
+
+            # The repository name text
+            new_name_txt = QtGui.QLabel()
+            new_name_txt.setAlignment(QtCore.Qt.AlignCenter)
+            new_name_txt.setTextFormat(QtCore.Qt.RichText)
+            new_name_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
+            new_name_txt.setOpenExternalLinks(True)
+            new_name_txt.setText('<a href="' + repo_url + '">' + server_info['library'] + '</a>')
+
+            # The curator text
+            new_curator_txt = QtGui.QLabel(text=server_info['maintainer'])
+            new_curator_txt.setAlignment(QtCore.Qt.AlignCenter)
+
+            # The remove button
+            cur_remove_btn = QtGui.QPushButton()
+            cur_remove_btn.setFlat(True)
+            cur_remove_btn.setIcon(QtGui.QIcon(':/icons/delete.svg'))
+
+            # Add all the widgets to the table
+            self.repos_tbl.setCellWidget(new_row_index, 0, new_chkbox)
+            self.repos_tbl.setCellWidget(new_row_index, 1, new_name_txt)
+            self.repos_tbl.setCellWidget(new_row_index, 2, new_curator_txt)
+            self.repos_tbl.setCellWidget(new_row_index, 3, cur_remove_btn)
+
+            print(server_info)
+        elif response.status_code == 404:
+            print("The OCCI repository URL provided does is not found")
+        elif response.status_code == 500:
+            print("There was a server error while trying to load the OCCI repository data")
+        else:
+            print("There was a general error while trying to load the OCCI repository data")
 
 
     def LoadDefaults(self):

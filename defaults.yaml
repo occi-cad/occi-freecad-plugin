@@ -1,5 +1,5 @@
 repositories:
-  - name: ArchiYou Components
-    host_name: Archiyou
+  - name: OCCI test
+    host_name: Mark van der Net
     host_url: https://archiyou.com/
     models_url: https://occi.archiyou.nl
