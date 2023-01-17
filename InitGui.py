@@ -10,6 +10,8 @@ class OCCIWorkbench ( Workbench ):
     ToolTip = "OCCI workbench"
     json_search_results = None  # Holds the results when a user searches for an OCCI component
     presets_layout = None  # Holds all of the preset buttons, but needs to be reset when a new component is selected
+    presets_controls = []  # Keeps the preset button objects separate from each other
+    presets = {}  # All of the presets that have been dynamically loaded
 
     def Initialize(self):
         # load the module
@@ -80,6 +82,7 @@ class OCCIWorkbench ( Workbench ):
         intro_lbl.setTextFormat(QtCore.Qt.RichText)
         intro_lbl.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         intro_lbl.setOpenExternalLinks(True)
+        intro_lbl.setStyleSheet("margin-top:10px;margin-bottom:10px;")
         intro_lbl.setText('Parametric CAD components for all. <a href="https://github.com/occi-cad/docs/blob/main/README.md">About</a>')
         main_vbox.addWidget(intro_lbl)
 
@@ -189,6 +192,7 @@ class OCCIWorkbench ( Workbench ):
         search_layout = QtGui.QHBoxLayout()
         self.search_txt = QtGui.QLineEdit()
         self.search_txt.setPlaceholderText("Component search text")
+        self.search_txt.returnPressed.connect(self.DoSearch)
         search_layout.addWidget(self.search_txt)
         search_btn = QtGui.QPushButton(text="Search")
         search_btn.clicked.connect(self.SearchComponents)
@@ -420,6 +424,13 @@ class OCCIWorkbench ( Workbench ):
         return default_settings
 
 
+    def DoSearch(self):
+        """
+        Allows the user to hit the Enter key in the search box to search.
+        """
+        self.SearchComponents()
+
+
     def SearchComponents(self):
         """
         Searches the specified repositories for the given component.
@@ -552,12 +563,45 @@ class OCCIWorkbench ( Workbench ):
         self.presets_info_lbl.setVisible(True)
         self.params_tbl.clearContents()  # Clear any previous parameter table contents
         self.RemovePreviousPresets()  # Clear any previous parameters from the table
+        self.presets_controls.clear()
+        self.presets.clear()
+
+
+    def HandlePresetButton(self, button):
+        """
+        Handles loading the presets associated with a preset button into the controls.
+        """
+
+        # We stored the key to the preset in the object name of the button
+        preset_key = button.objectName()
+
+        # Get the preset values back out of global storage and step through each one
+        for key in self.presets[preset_key].keys():
+            # Search the parameters table to look for a matching name
+            for row_index in range(0, self.params_tbl.rowCount()):
+                # Get the widget and protect against a blank row
+                widget = self.params_tbl.cellWidget(row_index, 0)
+                if widget == None:
+                    break
+
+                # The parameter name
+                param_name = widget.text().split("(")[0].strip()
+
+                # If there is a match, set the corresponding value control
+                if param_name == key:
+                    # The value widget should be in the third column (index starts at 0)
+                    value_widget = self.params_tbl.cellWidget(row_index, 2)
+                    value_widget.setValue(self.presets[preset_key][key])
+
+                    # We found what we need, exit the loop
+                    break
 
 
     def LoadParameters(self):
         """
         Loads the parameters for the selected component in the component search results table.
         """
+        from functools import partial
         from PySide import QtGui, QtCore
 
         # The stylesheet of the highlighted row
@@ -588,11 +632,13 @@ class OCCIWorkbench ( Workbench ):
                 author_txt = self.results_tbl.cellWidget(row_index, 1).text()
 
         print(self.json_search_results)
+
         # Make sure we have some search results loaded
         # If there are search results, look for the matching object in them
         if self.json_search_results != None:
             # Keeps track of any units used
             units_used = ""
+            default_preset = {}
 
             # Look through all of the results
             for result in self.json_search_results:
@@ -601,6 +647,9 @@ class OCCIWorkbench ( Workbench ):
                     # Step through all of the parameters and add them to the table
                     row_index = 0
                     for param in result['params'].keys():
+                        # Save the default for each parameter
+                        default_preset[param] = result['params'][param]['default']
+
                         if not result['params'][param]['units'] in units_used:
                             if units_used != "":
                                 units_used += "," + result['params'][param]['units']
@@ -640,12 +689,32 @@ class OCCIWorkbench ( Workbench ):
 
                     # There should always be a default preset
                     self.presets_info_lbl.setVisible(False)
-                    default_btn = QtGui.QPushButton(text="Default")
+                    default_btn = QtGui.QPushButton(text="Default", objectName="default")
+                    self.presets["default"] = default_preset
+                    default_btn.clicked.connect(partial(self.HandlePresetButton, default_btn))
                     self.presets_layout.addWidget(default_btn, 0, 0, 1, 1, QtCore.Qt.AlignCenter)
 
                     # Step through all of the other presets and add them
-                    for preset in result["parameter_presets"].keys():
-                        print(preset)
+                    row = 0
+                    col = 1
+                    for preset in result["param_presets"].keys():
+                        # Advance to the next row, if needed
+                        if col % 4 == 0:
+                            row += 1
+                            col = -1
+
+                        col += 1
+
+                        # Object name for button based on row/column so we can use it as a key
+                        self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn_" + str(row) + "_" + str(col)))
+
+                        # Save the preset associated with this button
+                        self.presets["btn_" + str(row) + "_" + str(col)] = result["param_presets"][preset]
+
+                        # Pass this button to its signal slot
+                        self.presets_controls[-1].clicked.connect(partial(self.HandlePresetButton, self.presets_controls[-1]))
+
+                        self.presets_layout.addWidget(self.presets_controls[-1], row, col, 1, 1, QtCore.Qt.AlignCenter)
 
 
 Gui.addWorkbench(OCCIWorkbench())
