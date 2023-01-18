@@ -82,9 +82,19 @@ class OCCIWorkbench ( Workbench ):
         intro_lbl.setTextFormat(QtCore.Qt.RichText)
         intro_lbl.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         intro_lbl.setOpenExternalLinks(True)
-        intro_lbl.setStyleSheet("margin-top:10px;margin-bottom:10px;")
+        intro_lbl.setStyleSheet("margin-top:10px;")
         intro_lbl.setText('Parametric CAD components for all. <a href="https://github.com/occi-cad/docs/blob/main/README.md">About</a>')
         main_vbox.addWidget(intro_lbl)
+
+        # Documentation link
+        docs_lbl = QtGui.QLabel()
+        docs_lbl.setAlignment(QtCore.Qt.AlignCenter)
+        docs_lbl.setTextFormat(QtCore.Qt.RichText)
+        docs_lbl.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
+        docs_lbl.setOpenExternalLinks(True)
+        docs_lbl.setStyleSheet("margin-bottom:10px;")
+        docs_lbl.setText('<a href="https://github.com/occi-cad/occi-freecad-plugin/blob/main/docs/index.md">Documentation</a>')
+        main_vbox.addWidget(docs_lbl)
 
         #####################################################################
         # Repos collapsible widget start                                    #
