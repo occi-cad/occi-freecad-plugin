@@ -140,10 +140,11 @@ class OCCIWorkbench ( Workbench ):
             # Set the host URL label for the repo
             cur_host_txt = QtGui.QLabel()
             cur_host_txt.setAlignment(QtCore.Qt.AlignCenter)
-            cur_host_txt.setTextFormat(QtCore.Qt.RichText)
-            cur_host_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
-            cur_host_txt.setOpenExternalLinks(True)
-            cur_host_txt.setText('<a href="' + repo['host_url'] + '">' + repo['host_name'] + '</a>')
+            # cur_host_txt.setTextFormat(QtCore.Qt.RichText)
+            # cur_host_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
+            # cur_host_txt.setOpenExternalLinks(True)
+            # cur_host_txt.setText('<a href="' + repo['host_url'] + '">' + repo['host_name'] + '</a>')
+            cur_host_txt.setText(repo['host_name'])
             self.repos_tbl.setCellWidget(row, 2, cur_host_txt)
 
             # Add the remove button for this repository
