@@ -187,6 +187,12 @@ class OCCIWorkbench ( Workbench ):
         add_layout.addWidget(add_btn)
         repos_controls_layout.addLayout(add_layout)
 
+        # Progress bar to keep users from guessing if there is work being done in the background
+        self.repos_progress_bar = QtGui.QProgressBar()
+        self.repos_progress_bar.setMinimum(0)
+        self.repos_progress_bar.setMaximum(100)
+        repos_controls_layout.addWidget(self.repos_progress_bar)
+
         #####################################################################
         # Repos collapsible widget end                                      #
         #####################################################################
@@ -236,6 +242,12 @@ class OCCIWorkbench ( Workbench ):
         component_btn_layout.addStretch()
         component_btn_layout.addWidget(component_btn)
         comps_controls_layout.addLayout(component_btn_layout)
+
+        # Progress bar to keep users from guessing if there is work being done in the background
+        self.search_progress_bar = QtGui.QProgressBar()
+        self.search_progress_bar.setMinimum(0)
+        self.search_progress_bar.setMaximum(100)
+        comps_controls_layout.addWidget(self.search_progress_bar)
 
         #####################################################################
         # Add component collapsible widget end                              #
@@ -439,8 +451,19 @@ class OCCIWorkbench ( Workbench ):
             print("Only https repositories are supported")
             return
 
+        # Let the user know that something is going on
+        self.repos_progress_bar.setTextVisible(True)
+        self.repos_progress_bar.setValue(20)
+        QtCore.QCoreApplication.processEvents()
+
         # Attempt to load the URL
         response = requests.get(repo_url)
+
+        # Let the user know there has been progress
+        self.repos_progress_bar.setValue(70)
+        QtCore.QCoreApplication.processEvents()
+
+        # Check the status code to see if the request succeeded
         if response.status_code == 200:
             # Attempt to parse the response into JSON
             server_info = json.loads(response.content)
@@ -452,7 +475,13 @@ class OCCIWorkbench ( Workbench ):
 
             # Find the end of the repositories table so we can add an entry
             row_count = self.repos_tbl.rowCount()
-            for row_index in range(0, row_count):
+            new_row_index = 0
+            for row_index in range(0, row_count + 1):
+                # If we are past the end of the table, we need to add a new row
+                if row_index == row_count:
+                    self.repos_tbl.insertRow(row_count)
+                    new_row_index = row_index
+
                 # If there is nothing in the row, we know it is ready to be filled
                 chkbox = self.repos_tbl.cellWidget(row_index, 0)
                 if chkbox == None:
@@ -460,7 +489,6 @@ class OCCIWorkbench ( Workbench ):
                     break
 
             # Add a new set of widgets to the last line
-            # The use checkbox
             new_chkbox = QtGui.QCheckBox(Checked=True)
 
             # The repository name text
@@ -485,14 +513,21 @@ class OCCIWorkbench ( Workbench ):
             self.repos_tbl.setCellWidget(new_row_index, 1, new_name_txt)
             self.repos_tbl.setCellWidget(new_row_index, 2, new_curator_txt)
             self.repos_tbl.setCellWidget(new_row_index, 3, cur_remove_btn)
-
-            print(server_info)
         elif response.status_code == 404:
             print("The OCCI repository URL provided does is not found")
         elif response.status_code == 500:
             print("There was a server error while trying to load the OCCI repository data")
         else:
             print("There was a general error while trying to load the OCCI repository data")
+
+        # Try to give the user a flash of 100%
+        self.repos_progress_bar.setValue(100)
+        QtCore.QCoreApplication.processEvents()
+
+        # Let the user know that the get request is done
+        self.repos_progress_bar.setTextVisible(False)
+        self.repos_progress_bar.setValue(0)
+        QtCore.QCoreApplication.processEvents()
 
 
     def LoadDefaults(self):
@@ -531,6 +566,11 @@ class OCCIWorkbench ( Workbench ):
         self.ClearPreviousComponentResults()
         self.results_num_lbl.setText("Searching...")
 
+        # Let the user know that something is going on
+        self.search_progress_bar.setTextVisible(True)
+        self.search_progress_bar.setValue(5)
+        QtCore.QCoreApplication.processEvents()
+
         # Walk through each row of the repositories table and search them
         row_count = self.repos_tbl.rowCount()
         for row in range(0, row_count):
@@ -546,9 +586,22 @@ class OCCIWorkbench ( Workbench ):
                     # Search the OCCI server for the search text
                     response = None
                     try:
+                        # Let the user know progress is being made
+                        self.search_progress_bar.setValue(10)
+                        QtCore.QCoreApplication.processEvents()
+
                         response = requests.get(models_url + '/search?q=' + self.search_txt.text())
+
+                        # Let the user know how far through the search we have progressed
+                        self.search_progress_bar.setValue(int(100 / (self.repos_tbl.rowCount() + 1)))
+                        QtCore.QCoreApplication.processEvents()
                     except:
                         self.results_num_lbl.setText("Search error")
+
+                        # Reset the progress bar so that it does not hang
+                        self.search_progress_bar.setTextVisible(False)
+                        self.search_progress_bar.setValue(0)
+                        QtCore.QCoreApplication.processEvents()
 
                     # If there was a response, process it
                     if response != None and response.status_code == 200:
@@ -582,6 +635,15 @@ class OCCIWorkbench ( Workbench ):
                             self.results_tbl.setCellWidget(row, 2, cur_description_txt)
                     else:
                         self.results_num_lbl.setText("Search error")
+
+        # Give the user a flash of 100%
+        self.search_progress_bar.setValue(100)
+        QtCore.QCoreApplication.processEvents()
+
+        # Let the user know that the request is finished
+        self.search_progress_bar.setTextVisible(False)
+        self.search_progress_bar.setValue(0)
+        QtCore.QCoreApplication.processEvents()
 
 
     def BuildSTEPURL(self, base_url):
@@ -674,6 +736,12 @@ class OCCIWorkbench ( Workbench ):
         """
         import tempfile
         import requests
+        from PySide import QtCore
+
+        # Let the user know that something is going on
+        self.search_progress_bar.setTextVisible(True)
+        self.search_progress_bar.setValue(5)
+        QtCore.QCoreApplication.processEvents()
 
         # Get the STEP download URL with current parameters
         download_url = self.BuildSTEPURL(base_url)
@@ -681,12 +749,39 @@ class OCCIWorkbench ( Workbench ):
         # We need a temporary file to download the STEP file into
         self.temp_file = tempfile.NamedTemporaryFile(suffix='.step')
 
+        # Let the user know that something is going on
+        self.search_progress_bar.setValue(10)
+        QtCore.QCoreApplication.processEvents()
+
+        # A progress indicator
+        progress = 10
+
         # Request the STEP download from the OCCI server and account for large file size
-        with requests.get(download_url, stream=True) as r:
-            r.raise_for_status()
-            with open(self.temp_file.name, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
+        with requests.get(download_url, stream=True) as response:
+            response.raise_for_status()
+            if response.status_code == 200:
+                with open(self.temp_file.name, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        # Let the user know that work is being done
+                        progress += 10
+                        self.search_progress_bar.setTextVisible(True)
+                        self.search_progress_bar.setValue(progress)
+                        QtCore.QCoreApplication.processEvents()
+
+                        f.write(chunk)
+            elif response.status_code == 404:
+                print("The model you have requested does not seem to exist on the server.")
+            elif response.status_code == 500:
+                print("There was an error on the server that prevented the model from being downloaded. Please contact the server administrator.")
+
+        # Give the user a flash of 100% complete
+        self.search_progress_bar.setValue(100)
+        QtCore.QCoreApplication.processEvents()
+
+        # Let the user know that the request is done
+        self.search_progress_bar.setTextVisible(False)
+        self.search_progress_bar.setValue(0)
+        QtCore.QCoreApplication.processEvents()
 
         return self.temp_file.name
 
