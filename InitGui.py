@@ -16,9 +16,31 @@ class OCCIWorkbench ( Workbench ):
 
 
     def Initialize(self):
+        from PySide.QtCore import QSettings
+
         # load the module
         import OCCIGui
         self.appendMenu('OCCI',['OCCI_Settings'])
+
+        # Check to see if this is the first time the plugin has run
+        settings = QSettings("OCCI", "occi-freecad-plugin")
+        is_first_run = settings.value('misc/is_first_run')
+
+        # If this is the first run, set some defaults
+        print(is_first_run)
+        if is_first_run == None:
+            # Make sure we do not enter this section again
+            settings.setValue('misc/is_first_run', False)
+
+            # Give sane defaults for all the settings
+            settings.setValue('ui/repos_expanded', 'yes')
+            settings.setValue('ui/comps_expanded', 'yes')
+            settings.setValue('ui/params_expanded', 'yes')
+            settings.setValue('ui/auto_update', 'no')
+            settings.setValue('data/repo_list', {'list': [{'use': True, 'library': 'OCCI test', 'maintainer': 'Mark van der Net', 'models_url': 'https://occi.archiyou.nl'}]})
+
+            # Write all the settings to disk
+            settings.sync()
 
 
     def GetClassName(self):
@@ -69,9 +91,12 @@ class OCCIWorkbench ( Workbench ):
         """
         from functools import partial
         from PySide import QtGui, QtCore
-        from CollapsibleWidget import CollapsibleWidget
+        from PySide.QtCore import QSettings
 
         toggle_button_css = "border:none;background-color:#D8D8D8;font-size:18px;"
+
+        # Make sure this method has access to the settings
+        settings = QtCore.QSettings("OCCI", "occi-freecad-plugin")
 
         # Build a collapsible GUI widget
         tree_widget = QtGui.QTreeWidget()
@@ -137,11 +162,12 @@ class OCCIWorkbench ( Workbench ):
 
         # Load the default repositories into the table
         row = 0
-        self.default_settings = self.LoadDefaults()
-        for repo in self.default_settings['repositories']:
+        # self.default_settings = self.LoadDefaults()
+        repos = settings.value('data/repo_list')
+        for repo in repos['list']:
             # Set the 'use' checkbox for the repo
             cur_checkbox = QtGui.QCheckBox()
-            cur_checkbox.setChecked(True)
+            cur_checkbox.setChecked(repo['use'])
             self.repos_tbl.setCellWidget(row, 0, cur_checkbox)
 
             # Set the name text label for the repo
@@ -305,6 +331,8 @@ class OCCIWorkbench ( Workbench ):
         # Update controls
         update_layout = QtGui.QHBoxLayout()
         self.auto_update_chk = QtGui.QCheckBox(text="auto update")
+        self.auto_update_chk.setChecked(settings.value('ui/auto_update') == 'yes')
+        self.auto_update_chk.stateChanged.connect(self.CheckBoxChanged)
         update_layout.addWidget(self.auto_update_chk)
         update_btn = QtGui.QPushButton(text="Update Component")
         update_btn.clicked.connect(self.UpdateComponent)
@@ -344,7 +372,6 @@ class OCCIWorkbench ( Workbench ):
         self.repo_widget_item = QtGui.QTreeWidgetItem(["Repositories"])
         repo_controls_item = QtGui.QTreeWidgetItem(["item1"])
         self.repo_widget_item.addChild(repo_controls_item)
-        self.repo_widget_item.setExpanded(True)
         # self.repo_widget_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.DontShowIndicator)
 
         # Custom components collapsible area button
@@ -390,7 +417,12 @@ class OCCIWorkbench ( Workbench ):
         tree_widget.setItemWidget(comps_controls_item, 0, comps_controls_widget)
         tree_widget.setItemWidget(config_controls_item, 0, config_controls_widget)
 
-        tree_widget.expandAll()
+        # Expand the top level tree widgets as appropriate
+        self.repo_widget_item.setExpanded(settings.value('ui/repos_expanded') == 'yes')
+        self.comps_widget_item.setExpanded(settings.value('ui/comps_expanded') == 'yes')
+        self.conf_widget_item.setExpanded(settings.value('ui/params_expanded') == 'yes')
+
+        # Add our collapsible tree GUI arrangement to the dock
         main_vbox.addWidget(tree_widget)
 
         # We can only add widgets to a dock, so we need a top-level widget
@@ -415,21 +447,28 @@ class OCCIWorkbench ( Workbench ):
         Used to toggle the repo widgets.
         """
         from PySide import QtGui
+        from PySide.QtCore import QSettings
+        print(self.repo_widget_item.isExpanded())
+        # Save the new state as a setting
+        settings = QSettings("OCCI", "occi-freecad-plugin")
+        settings.setValue("ui/repos_expanded", 'yes' if not self.repo_widget_item.isExpanded() else 'no')
+        settings.sync()
 
         self.repo_widget_item.setExpanded(not self.repo_widget_item.isExpanded())
-
-        # Only use this if a custom expansion button is added back in
-        # Change the Window icon based on the widget state
-        # if self.repo_widget_item.isExpanded():
-        #     self.repos_toggle_button_arrow.setArrowType(QtGui.Qt.UpArrow)
-        # else:
-        #     self.repos_toggle_button_arrow.setArrowType(QtGui.Qt.DownArrow)
 
 
     def toggle_comps_widgets(self):
         """
         Used to toggle the components widgets.
         """
+        from PySide.QtCore import QSettings
+
+        # Save the new state as a setting
+        settings = QSettings("OCCI", "occi-freecad-plugin")
+        settings.setValue("ui/comps_expanded", 'yes' if not self.comps_widget_item.isExpanded() else 'no')
+        settings.sync()
+
+        # Set the collapsed state of the tree item
         self.comps_widget_item.setExpanded(not self.comps_widget_item.isExpanded())
 
 
@@ -437,6 +476,14 @@ class OCCIWorkbench ( Workbench ):
         """
         Used to toggle the configuration widgets.
         """
+        from PySide.QtCore import QSettings
+
+        # Save the new state as a setting
+        settings = QSettings("OCCI", "occi-freecad-plugin")
+        settings.setValue("ui/params_expanded", 'yes' if not self.conf_widget_item.isExpanded() else 'no')
+        settings.sync()
+
+        # Set the collapsed state of the tree item
         self.conf_widget_item.setExpanded(not self.conf_widget_item.isExpanded())
 
 
@@ -512,7 +559,7 @@ class OCCIWorkbench ( Workbench ):
 
             # Check to make sure this is not a duplicate entry
             if self.FindRepositoryRow(server_info['library'], server_info['maintainer']) != None:
-                FreeCAD.Console.PrintWarning("OCCI: Duplicate repository entries are not permitted. If this respository server should not be a duplicate, contact the system administrator to make sure they do not have a conflicting name.\r\n")
+                FreeCAD.Console.PrintWarning("OCCI: Duplicate repository entries are not permitted. If this repository server should not be a duplicate, contact the system administrator to make sure they do not have a conflicting name.\r\n")
 
                 # Make sure that the progress bar does not hang
                 self.repos_progress_bar.setTextVisible(False)
@@ -562,6 +609,15 @@ class OCCIWorkbench ( Workbench ):
             self.repos_tbl.setCellWidget(new_row_index, 1, new_name_txt)
             self.repos_tbl.setCellWidget(new_row_index, 2, new_curator_txt)
             self.repos_tbl.setCellWidget(new_row_index, 3, self.remove_buttons[new_row_index])
+
+            # Save the new repository's information in the settings
+            settings = QtCore.QSettings("OCCI", "occi-freecad-plugin")
+            repo_list = settings.value('data/repo_list')
+            if repo_url[-1] == "/":
+                repo_url = repo_url[-1] = ""
+            repo_list['list'].append({'use': True, 'library': server_info['library'], 'maintainer': server_info['maintainer'], 'models_url': repo_url})
+            settings.setValue('data/repo_list', repo_list)
+            settings.sync()
         elif response.status_code == 404:
             FreeCAD.Console.PrintError("OCCI ERROR: The OCCI repository URL provided does is not found.\r\n")
         elif response.status_code == 500:
@@ -640,6 +696,7 @@ class OCCIWorkbench ( Workbench ):
                         self.search_progress_bar.setValue(10)
                         QtCore.QCoreApplication.processEvents()
 
+                        # Request the search from the server
                         response = requests.get(models_url + '/search?q=' + self.search_txt.text())
 
                         # Let the user know how far through the search we have progressed
@@ -689,6 +746,10 @@ class OCCIWorkbench ( Workbench ):
                             self.results_tbl.setCellWidget(results_row, 2, cur_description_txt)
 
                             results_row += 1
+                    elif response.status_code == 404:
+                        FreeCAD.Console.PrintError("OCCI ERROR: The model was not found in the OCCI repository.")
+                    elif response.status_code == 500:
+                        FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being generated. Please contact that server's administrator.")
                     else:
                         self.results_num_lbl.setText("Search error")
 
@@ -905,6 +966,19 @@ class OCCIWorkbench ( Workbench ):
 
         else:
             FreeCAD.Cosole.PrintMessage("OCCI: Please select a component in order to configure and add it.\r\n")
+
+
+    def CheckBoxChanged(self):
+        """
+        The state of the Auto Update checkbox needs to be saved.
+        """
+        from PySide.QtCore import QSettings
+
+        # Make sure this method has access to the settings
+        settings = QSettings("OCCI", "occi-freecad-plugin")
+
+        settings.setValue('ui/auto_update', 'yes' if self.auto_update_chk.isChecked() else 'no')
+        settings.sync()
 
 
     def UpdateModelWithParameters(self):
