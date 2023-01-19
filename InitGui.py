@@ -12,15 +12,18 @@ class OCCIWorkbench ( Workbench ):
     presets_layout = None  # Holds all of the preset buttons, but needs to be reset when a new component is selected
     presets_controls = []  # Keeps the preset button objects separate from each other
     presets = {}  # All of the presets that have been dynamically loaded
+    remove_buttons = []
+
 
     def Initialize(self):
         # load the module
         import OCCIGui
-        # self.appendToolbar('OCCI',['OCCI_HelloWorld'])
         self.appendMenu('OCCI',['OCCI_Settings'])
+
 
     def GetClassName(self):
         return "Gui::PythonWorkbench"
+
 
     def Activated(self):
         """
@@ -28,7 +31,7 @@ class OCCIWorkbench ( Workbench ):
         """
         from PySide import QtGui, QtCore
 
-        FreeCAD.Console.PrintMessage("OCCI Module Activated")
+        FreeCAD.Console.PrintMessage("OCCI Module Activated\r\n")
 
         # A handle to the main window will allow us to configure the GUI
         main_win = FreeCADGui.getMainWindow()
@@ -40,6 +43,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Populate the OCCI dock with all of the required controls
         self.PopulateOCCIDock(occi_dock)
+
 
     def Deactivated(self):
         """
@@ -57,11 +61,13 @@ class OCCIWorkbench ( Workbench ):
                 widget.setVisible(True)
                 main_win.removeDockWidget(widget)
 
+
     def PopulateOCCIDock(self, occi_dock):
         """
         Does the heavy lifting of populating the OCCI right side dock
         with controls.
         """
+        from functools import partial
         from PySide import QtGui, QtCore
         from CollapsibleWidget import CollapsibleWidget
 
@@ -144,7 +150,7 @@ class OCCIWorkbench ( Workbench ):
             cur_name_txt.setTextFormat(QtCore.Qt.RichText)
             cur_name_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
             cur_name_txt.setOpenExternalLinks(True)
-            cur_name_txt.setText('<a href="' + repo['models_url'] + '">' + repo['name'] + '</a>')
+            cur_name_txt.setText('<a href="' + repo['models_url'] + '">' + repo['library'] + '</a>')
             self.repos_tbl.setCellWidget(row, 1, cur_name_txt)
 
             # Set the host URL label for the repo
@@ -154,14 +160,15 @@ class OCCIWorkbench ( Workbench ):
             # cur_host_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
             # cur_host_txt.setOpenExternalLinks(True)
             # cur_host_txt.setText('<a href="' + repo['host_url'] + '">' + repo['host_name'] + '</a>')
-            cur_host_txt.setText(repo['host_name'])
+            cur_host_txt.setText(repo['maintainer'])
             self.repos_tbl.setCellWidget(row, 2, cur_host_txt)
 
-            # Add the remove button for this repository
-            cur_remove_btn = QtGui.QPushButton()
-            cur_remove_btn.setFlat(True)
-            cur_remove_btn.setIcon(QtGui.QIcon(':/icons/delete.svg'))
-            self.repos_tbl.setCellWidget(row, 3, cur_remove_btn)
+            # Create the remove button for this repository
+            self.remove_buttons.append(QtGui.QPushButton(objectName=repo['library'] + "_" + repo['maintainer']))
+            self.remove_buttons[row].setFlat(True)
+            self.remove_buttons[row].setIcon(QtGui.QIcon(':/icons/delete.svg'))
+            self.remove_buttons[row].clicked.connect(partial(self.RemoveRepository, self.remove_buttons[row]))
+            self.repos_tbl.setCellWidget(row, 3, self.remove_buttons[row])
 
             row += 1
 
@@ -179,6 +186,7 @@ class OCCIWorkbench ( Workbench ):
         self.add_txt = QtGui.QLineEdit()
         # self.add_txt.setStyleSheet("border: 1px solid gray;")
         self.add_txt.setPlaceholderText("New OCCI URL")
+        self.add_txt.returnPressed.connect(self.AddRepository)
         add_layout.addWidget(self.add_txt)
         add_btn = QtGui.QPushButton(text="Add Respository")
         add_btn.clicked.connect(self.AddRepository)
@@ -296,8 +304,8 @@ class OCCIWorkbench ( Workbench ):
 
         # Update controls
         update_layout = QtGui.QHBoxLayout()
-        auto_update_chk = QtGui.QCheckBox(text="auto update")
-        update_layout.addWidget(auto_update_chk)
+        self.auto_update_chk = QtGui.QCheckBox(text="auto update")
+        update_layout.addWidget(self.auto_update_chk)
         update_btn = QtGui.QPushButton(text="Update Component")
         update_btn.clicked.connect(self.UpdateComponent)
         update_layout.addWidget(update_btn)
@@ -436,6 +444,7 @@ class OCCIWorkbench ( Workbench ):
         """
         Loads the data for the given repository and adds it to the table.
         """
+        from functools import partial
         import requests
         import json
         from PySide import QtGui, QtCore
@@ -445,10 +454,10 @@ class OCCIWorkbench ( Workbench ):
 
         # Let the user know about common errors
         if repo_url == "":
-            print("Please enter a Repository URL")
+            FreeCAD.Console.PrintWarning("OCCI: Please enter a Repository URL.\r\n")
             return
         elif not repo_url.startswith("https://"):
-            print("Only https repositories are supported")
+            FreeCAD.Console.PrintWarning("OCCI: Only https repositories are supported.\r\n")
             return
 
         # Let the user know that something is going on
@@ -457,7 +466,19 @@ class OCCIWorkbench ( Workbench ):
         QtCore.QCoreApplication.processEvents()
 
         # Attempt to load the URL
-        response = requests.get(repo_url)
+        response = None
+        try:
+            response = requests.get(repo_url)
+        except:
+            FreeCAD.Console.PrintError("OCCI ERROR: There was a problem loading the URL. Please verify that the URL is valid.\r\n")
+
+        # If there was no response, there is no reason to continue
+        if response == None:
+            # Make sure that the progress bar does not hang
+            self.repos_progress_bar.setTextVisible(False)
+            self.repos_progress_bar.setValue(0)
+            QtCore.QCoreApplication.processEvents()
+            return
 
         # Let the user know there has been progress
         self.repos_progress_bar.setValue(70)
@@ -466,11 +487,38 @@ class OCCIWorkbench ( Workbench ):
         # Check the status code to see if the request succeeded
         if response.status_code == 200:
             # Attempt to parse the response into JSON
-            server_info = json.loads(response.content)
+            try:
+                server_info = json.loads(response.content)
+            except:
+                FreeCAD.Console.PrintError("OCCI ERROR: There was an error parsing the JSON content. Please ensure that the provided URL points to a valid OCCI server.\r\n")
+
+                # Make sure that the progress bar does not hang
+                self.repos_progress_bar.setTextVisible(False)
+                self.repos_progress_bar.setValue(0)
+                QtCore.QCoreApplication.processEvents()
+
+                return
 
             # Check to make sure the data has the appropriate fields
             if not "library" in server_info or not "maintainer" in server_info:
-                print("The OCCI repository is not presenting the correct data to be added")
+                FreeCAD.Console.PrintError("OCCI ERROR: The OCCI repository is not presenting the correct data to be added.\r\n")
+
+                # Make sure that the progress bar does not hang
+                self.repos_progress_bar.setTextVisible(False)
+                self.repos_progress_bar.setValue(0)
+                QtCore.QCoreApplication.processEvents()
+
+                return
+
+            # Check to make sure this is not a duplicate entry
+            if self.FindRepositoryRow(server_info['library'], server_info['maintainer']) != None:
+                FreeCAD.Console.PrintWarning("OCCI: Duplicate repository entries are not permitted. If this respository server should not be a duplicate, contact the system administrator to make sure they do not have a conflicting name.\r\n")
+
+                # Make sure that the progress bar does not hang
+                self.repos_progress_bar.setTextVisible(False)
+                self.repos_progress_bar.setValue(0)
+                QtCore.QCoreApplication.processEvents()
+
                 return
 
             # Find the end of the repositories table so we can add an entry
@@ -504,21 +552,22 @@ class OCCIWorkbench ( Workbench ):
             new_curator_txt.setAlignment(QtCore.Qt.AlignCenter)
 
             # The remove button
-            cur_remove_btn = QtGui.QPushButton()
-            cur_remove_btn.setFlat(True)
-            cur_remove_btn.setIcon(QtGui.QIcon(':/icons/delete.svg'))
+            self.remove_buttons.append(QtGui.QPushButton(objectName=server_info['library'] + "_" + server_info['maintainer']))
+            self.remove_buttons[new_row_index].setFlat(True)
+            self.remove_buttons[new_row_index].setIcon(QtGui.QIcon(':/icons/delete.svg'))
+            self.remove_buttons[new_row_index].clicked.connect(partial(self.RemoveRepository, self.remove_buttons[new_row_index]))
 
             # Add all the widgets to the table
             self.repos_tbl.setCellWidget(new_row_index, 0, new_chkbox)
             self.repos_tbl.setCellWidget(new_row_index, 1, new_name_txt)
             self.repos_tbl.setCellWidget(new_row_index, 2, new_curator_txt)
-            self.repos_tbl.setCellWidget(new_row_index, 3, cur_remove_btn)
+            self.repos_tbl.setCellWidget(new_row_index, 3, self.remove_buttons[new_row_index])
         elif response.status_code == 404:
-            print("The OCCI repository URL provided does is not found")
+            FreeCAD.Console.PrintError("OCCI ERROR: The OCCI repository URL provided does is not found.\r\n")
         elif response.status_code == 500:
-            print("There was a server error while trying to load the OCCI repository data")
+            FreeCAD.Console.PrintError("OCCI ERROR: There was a server error while trying to load the OCCI repository data.\r\n")
         else:
-            print("There was a general error while trying to load the OCCI repository data")
+            FreeCAD.Console.PrintError("OCCI ERROR: There was a general error while trying to load the OCCI repository data.\r\n")
 
         # Try to give the user a flash of 100%
         self.repos_progress_bar.setValue(100)
@@ -573,6 +622,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Walk through each row of the repositories table and search them
         row_count = self.repos_tbl.rowCount()
+        results_row = 0
         for row in range(0, row_count):
             # If there is something in the row, extract data from the row
             chkbox = self.repos_tbl.cellWidget(row, 0)
@@ -616,6 +666,10 @@ class OCCIWorkbench ( Workbench ):
 
                         # Add all the search results to the table
                         for json_result in self.json_search_results:
+                            # If we are past the end of the table, we need to add a new row
+                            if results_row == self.results_tbl.rowCount():
+                                self.results_tbl.insertRow(results_row)
+
                             # The component name field
                             cur_name_txt = QtGui.QLabel()
                             cur_name_txt.setAlignment(QtCore.Qt.AlignCenter)
@@ -624,15 +678,17 @@ class OCCIWorkbench ( Workbench ):
                             # cur_name_txt.setOpenExternalLinks(True)
                             cur_name_txt.setText(json_result['name'])
                             # cur_name_txt.setText('<a href="' + json_result['url'] + '">' + json_result['name'] + '</a>')
-                            self.results_tbl.setCellWidget(row, 0, cur_name_txt)
+                            self.results_tbl.setCellWidget(results_row, 0, cur_name_txt)
 
                             # The component author field
                             cur_author_txt = QtGui.QLabel(json_result["author"])
-                            self.results_tbl.setCellWidget(row, 1, cur_author_txt)
+                            self.results_tbl.setCellWidget(results_row, 1, cur_author_txt)
 
                             # The component description field
                             cur_description_txt = QtGui.QLabel(json_result["description"])
-                            self.results_tbl.setCellWidget(row, 2, cur_description_txt)
+                            self.results_tbl.setCellWidget(results_row, 2, cur_description_txt)
+
+                            results_row += 1
                     else:
                         self.results_num_lbl.setText("Search error")
 
@@ -730,6 +786,28 @@ class OCCIWorkbench ( Workbench ):
         return None
 
 
+    def FindRepositoryRow(self, library, maintainer):
+        """
+        Finds a matching row in the repositories table.
+        """
+
+        # Step through each row of the repositories table
+        for row_index in range(0, self.repos_tbl.rowCount()):
+            # Try to get the controls in the table
+            lib_txt = self.repos_tbl.cellWidget(row_index, 1)
+            maint_txt = self.repos_tbl.cellWidget(row_index, 2)
+
+            # If the library control is None, there is no need to check it
+            if lib_txt == None or maint_txt == None:
+                break
+
+            # If the library and maintainer match, we assume we have a row match
+            if library == lib_txt.text().split(">")[1].split("<")[0] and maintainer == maint_txt.text():
+                return row_index
+
+        return None
+
+
     def DownloadModel(self, base_url):
         """
         Handles the task of downloading an OCCI component.
@@ -770,9 +848,9 @@ class OCCIWorkbench ( Workbench ):
 
                         f.write(chunk)
             elif response.status_code == 404:
-                print("The model you have requested does not seem to exist on the server.")
+                FreeCAD.Console.PrintError("OCCI ERROR: The model you have requested does not seem to exist on the server.\r\n")
             elif response.status_code == 500:
-                print("There was an error on the server that prevented the model from being downloaded. Please contact the server administrator.")
+                FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being downloaded. Please contact the server administrator.\r\n")
 
         # Give the user a flash of 100% complete
         self.search_progress_bar.setValue(100)
@@ -826,7 +904,17 @@ class OCCIWorkbench ( Workbench ):
                 Gui.SendMsgToActiveView("ViewFit")
 
         else:
-            print("Please select a component in order to configure and add it.")
+            FreeCAD.Cosole.PrintMessage("OCCI: Please select a component in order to configure and add it.\r\n")
+
+
+    def UpdateModelWithParameters(self):
+        """
+        Handles auto-updating of the model when a parameter is changed.
+        """
+
+        # Make sure the auto-update checkbox is checked
+        if self.auto_update_chk.isChecked():
+            self.UpdateComponent()
 
 
     def UpdateComponent(self):
@@ -877,6 +965,25 @@ class OCCIWorkbench ( Workbench ):
             # Reset the third column's highlight
             if self.results_tbl.cellWidget(row_index, 2) != None:
                 self.results_tbl.cellWidget(row_index, 2).setStyleSheet("background-color:#FFFFFF")
+
+
+    def RemoveRepository(self, button):
+        """
+        Handles the removal of a repository from the repositories table.
+        """
+
+        # Retrieve the row index
+        if button.objectName() != None:
+            library = button.objectName().split("_")[0]
+            maintainer = button.objectName().split("_")[1]
+
+            # Try to find the matching row index
+            row_index = self.FindRepositoryRow(library, maintainer)
+
+            # Remove the row from the table and the array of buttons
+            if row_index != None:
+                self.repos_tbl.removeRow(row_index)
+                self.remove_buttons.pop(row_index)
 
 
     def RemovePreviousPresets(self):
@@ -973,8 +1080,6 @@ class OCCIWorkbench ( Workbench ):
             if  self.results_tbl.cellWidget(row_index, 1) != None:
                 author_txt = self.results_tbl.cellWidget(row_index, 1).text()
 
-        print(self.json_search_results)
-
         # Make sure we have some search results loaded
         # If there are search results, look for the matching object in them
         name, author = self.FindSelectedComponent()
@@ -986,6 +1091,10 @@ class OCCIWorkbench ( Workbench ):
             # Step through all of the parameters and add them to the table
             row_index = 0
             for param in result['params'].keys():
+                # If we are past the end of the table, we need to add a new row
+                if row_index == self.params_tbl.rowCount():
+                    self.params_tbl.insertRow(row_index)
+
                 # Save the default for each parameter
                 default_preset[param] = result['params'][param]['default']
 
@@ -1007,16 +1116,26 @@ class OCCIWorkbench ( Workbench ):
 
                 # Add the value widget in the last column
                 if result['params'][param]['type'] == 'number' and isinstance(result['params'][param]['default'], int):
+                    # An integer spin number box
                     value_widget = QtGui.QSpinBox()
                     value_widget.setValue(int(result['params'][param]['default']))
                     value_widget.setRange(int(result['params'][param]['start']), int(result['params'][param]['end']))
                     value_widget.setSingleStep(int(result['params'][param]['step']))
+                    value_widget.textChanged.connect(self.UpdateModelWithParameters)
                     self.params_tbl.setCellWidget(row_index, 2, value_widget)
                 elif result['params'][param]['type'] == 'number' and isinstance(result['params'][param]['default'], float):
+                    # A float spin number box
                     value_widget = QtGui.QDoubleSpinBox()
                     value_widget.setValue(float(result['params'][param]['default']))
                     value_widget.setRange(float(result['params'][param]['start']), float(result['params'][param]['end']))
                     value_widget.setSingleStep(float(result['params'][param]['step']))
+                    value_widget.textChanged.connect(self.UpdateModelWithParameters)
+                    self.params_tbl.setCellWidget(row_index, 2, value_widget)
+                elif result['params'][param]['type'] == 'text':
+                    # A text field
+                    value_widget = QtGui.QLineEdit()
+                    value_widget.setPlaceholderText("Parameter Text")
+                    value_widget.textChanged.connect(self.UpdateModelWithParameters)
                     self.params_tbl.setCellWidget(row_index, 2, value_widget)
 
                 row_index += 1
