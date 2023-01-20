@@ -1,5 +1,0 @@
-repositories:
-  - library: OCCI test
-    maintainer: Mark van der Net
-    maintainer_url: https://archiyou.com/
-    models_url: https://occi.archiyou.nl

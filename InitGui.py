@@ -361,7 +361,7 @@ class OCCIWorkbench ( Workbench ):
         # Custom repositories collapsible area button
         self.repos_toggle_widget = QtGui.QWidget()
         self.repos_toggle_widget.setStyleSheet(toggle_button_css)
-        self.repos_toggle_widget.setMaximumHeight(35)
+        self.repos_toggle_widget.setMaximumHeight(40)
         self.repos_toggle_layout = QtGui.QGridLayout()
         self.repos_toggle_button = QtGui.QToolButton(text="Repositories")
         self.repos_toggle_button.setStyleSheet(toggle_button_css)
@@ -382,7 +382,7 @@ class OCCIWorkbench ( Workbench ):
         # Custom components collapsible area button
         self.comps_toggle_widget = QtGui.QWidget()
         self.comps_toggle_widget.setStyleSheet(toggle_button_css)
-        self.comps_toggle_widget.setMaximumHeight(35)
+        self.comps_toggle_widget.setMaximumHeight(40)
         self.comps_toggle_layout = QtGui.QGridLayout()
         self.comps_toggle_button = QtGui.QToolButton(text="Add Parametric Component")
         self.comps_toggle_button.setStyleSheet(toggle_button_css)
@@ -404,7 +404,7 @@ class OCCIWorkbench ( Workbench ):
         # Custom configuration button
         self.conf_toggle_widget = QtGui.QWidget()
         self.conf_toggle_widget.setStyleSheet(toggle_button_css)
-        self.conf_toggle_widget.setMaximumHeight(35)
+        self.conf_toggle_widget.setMaximumHeight(40)
         self.conf_toggle_layout = QtGui.QGridLayout()
         self.conf_toggle_button = QtGui.QPushButton(text="Configure Selected Component")
         self.conf_toggle_button.setStyleSheet(toggle_button_css)
