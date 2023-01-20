@@ -12,7 +12,8 @@ class OCCIWorkbench ( Workbench ):
     presets_layout = None  # Holds all of the preset buttons, but needs to be reset when a new component is selected
     presets_controls = []  # Keeps the preset button objects separate from each other
     presets = {}  # All of the presets that have been dynamically loaded
-    remove_buttons = []
+    use_checks = []  # Holds the check boxes for whether or not to include each repository in searches
+    remove_buttons = []  # Holds the buttons to remove each of the repository entries
 
 
     def Initialize(self):
@@ -166,9 +167,10 @@ class OCCIWorkbench ( Workbench ):
         repos = settings.value('data/repo_list')
         for repo in repos['list']:
             # Set the 'use' checkbox for the repo
-            cur_checkbox = QtGui.QCheckBox()
-            cur_checkbox.setChecked(repo['use'])
-            self.repos_tbl.setCellWidget(row, 0, cur_checkbox)
+            self.use_checks.append(QtGui.QCheckBox(objectName=repo['library'] + "_" + repo['maintainer']))
+            self.use_checks[-1].setChecked(repo['use'])
+            self.use_checks[-1].stateChanged.connect(partial(self.UseCheckboxChanged, self.use_checks[-1]))
+            self.repos_tbl.setCellWidget(row, 0, self.use_checks[-1])
 
             # Set the name text label for the repo
             cur_name_txt = QtGui.QLabel()
@@ -965,7 +967,30 @@ class OCCIWorkbench ( Workbench ):
                 Gui.SendMsgToActiveView("ViewFit")
 
         else:
-            FreeCAD.Cosole.PrintMessage("OCCI: Please select a component in order to configure and add it.\r\n")
+            FreeCAD.Console.PrintMessage("OCCI: Please select a component in order to configure and add it.\r\n")
+
+
+    def UseCheckboxChanged(self, checkbox, state):
+        """
+        Called when a use checkbox on a repository entry is changed.
+        """
+        from PySide.QtCore import QSettings
+
+        # We need to extract the library and maintainer to match this checkbox to its repo row
+        library = checkbox.objectName().split("_")[0]
+        maintainer = checkbox.objectName().split("_")[1]
+
+        # Try to find the matching row index
+        row_index = self.FindRepositoryRow(library, maintainer)
+
+        # Make sure there was a match
+        if row_index != None:
+            # Pull the repo list dictionary from the settings
+            settings = QSettings("OCCI", "occi-freecad-plugin")
+            repo_list = settings.value('data/repo_list')
+            repo_list['list'][row_index]['use'] = checkbox.isChecked()
+            settings.setValue('data/repo_list', repo_list)
+            settings.sync()
 
 
     def CheckBoxChanged(self):
@@ -1066,6 +1091,7 @@ class OCCIWorkbench ( Workbench ):
                 repo_list['list'].pop(row_index)
                 settings.setValue('data/repo_list', repo_list)
                 settings.sync()
+
 
     def RemovePreviousPresets(self):
         """
