@@ -21,7 +21,7 @@ class OCCIWorkbench ( Workbench ):
 
         # load the module
         import OCCIGui
-        self.appendMenu('OCCI',['OCCI_Settings'])
+        self.appendMenu('OCCI',['OCCI_Reset_Repos'])
 
         # Check to see if this is the first time the plugin has run
         settings = QSettings("OCCI", "occi-freecad-plugin")
