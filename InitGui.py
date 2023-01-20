@@ -1045,6 +1045,7 @@ class OCCIWorkbench ( Workbench ):
         """
         Handles the removal of a repository from the repositories table.
         """
+        from PySide.QtCore import QSettings
 
         # Retrieve the row index
         if button.objectName() != None:
@@ -1059,6 +1060,12 @@ class OCCIWorkbench ( Workbench ):
                 self.repos_tbl.removeRow(row_index)
                 self.remove_buttons.pop(row_index)
 
+                # Remove the matching setting
+                settings = QSettings("OCCI", "occi-freecad-plugin")
+                repo_list = settings.value('data/repo_list')
+                repo_list['list'].pop(row_index)
+                settings.setValue('data/repo_list', repo_list)
+                settings.sync()
 
     def RemovePreviousPresets(self):
         """
