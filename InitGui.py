@@ -28,7 +28,6 @@ class OCCIWorkbench ( Workbench ):
         is_first_run = settings.value('misc/is_first_run')
 
         # If this is the first run, set some defaults
-        print(is_first_run)
         if is_first_run == None:
             # Make sure we do not enter this section again
             settings.setValue('misc/is_first_run', False)
@@ -102,7 +101,7 @@ class OCCIWorkbench ( Workbench ):
         # Build a collapsible GUI widget
         tree_widget = QtGui.QTreeWidget()
         tree_widget.header().hide()
-        # tree_widget.setStyleSheet("border:none;margin:0px;padding:0px;")
+        tree_widget.setRootIsDecorated(False)
 
         # Assemble the contents of the Repositories expandable widget
         main_vbox = QtGui.QVBoxLayout()
@@ -366,15 +365,19 @@ class OCCIWorkbench ( Workbench ):
         self.repos_toggle_layout = QtGui.QGridLayout()
         self.repos_toggle_button = QtGui.QToolButton(text="Repositories")
         self.repos_toggle_button.setStyleSheet(toggle_button_css)
-        self.repos_toggle_button.clicked.connect(self.toggle_repo_widgets)
+        self.repos_toggle_button.clicked.connect(self.ToggleRepoWidgets)
         self.repos_toggle_layout.addWidget(self.repos_toggle_button, 0, 0, 1, 11, QtCore.Qt.AlignCenter)
+        self.toggle_repos_arrow = QtGui.QToolButton(text="")
+        self.toggle_repos_arrow.setStyleSheet(toggle_button_css)
+        self.toggle_repos_arrow.setArrowType(QtGui.Qt.UpArrow)
+        self.toggle_repos_arrow.clicked.connect(self.ToggleRepoWidgets)
+        self.repos_toggle_layout.addWidget(self.toggle_repos_arrow, 0, 12, 1, 1)
         self.repos_toggle_widget.setLayout(self.repos_toggle_layout)
 
         # Set up the repos widget tree item
         self.repo_widget_item = QtGui.QTreeWidgetItem(["Repositories"])
         repo_controls_item = QtGui.QTreeWidgetItem(["item1"])
         self.repo_widget_item.addChild(repo_controls_item)
-        # self.repo_widget_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.DontShowIndicator)
 
         # Custom components collapsible area button
         self.comps_toggle_widget = QtGui.QWidget()
@@ -383,8 +386,13 @@ class OCCIWorkbench ( Workbench ):
         self.comps_toggle_layout = QtGui.QGridLayout()
         self.comps_toggle_button = QtGui.QToolButton(text="Add Parametric Component")
         self.comps_toggle_button.setStyleSheet(toggle_button_css)
-        self.comps_toggle_button.clicked.connect(self.toggle_comps_widgets)
+        self.comps_toggle_button.clicked.connect(self.ToggleCompsWidgets)
         self.comps_toggle_layout.addWidget(self.comps_toggle_button, 0, 0, 1, 11, QtCore.Qt.AlignCenter)
+        self.toggle_comps_arrow = QtGui.QToolButton(text="")
+        self.toggle_comps_arrow.setStyleSheet(toggle_button_css)
+        self.toggle_comps_arrow.setArrowType(QtGui.Qt.UpArrow)
+        self.toggle_comps_arrow.clicked.connect(self.ToggleRepoWidgets)
+        self.comps_toggle_layout.addWidget(self.toggle_comps_arrow, 0, 12, 1, 1)
         self.comps_toggle_widget.setLayout(self.comps_toggle_layout)
 
         # Set up the components widget tree item
@@ -400,8 +408,13 @@ class OCCIWorkbench ( Workbench ):
         self.conf_toggle_layout = QtGui.QGridLayout()
         self.conf_toggle_button = QtGui.QPushButton(text="Configure Selected Component")
         self.conf_toggle_button.setStyleSheet(toggle_button_css)
-        self.conf_toggle_button.clicked.connect(self.toggle_conf_widgets)
+        self.conf_toggle_button.clicked.connect(self.ToggleParamsWidgets)
         self.conf_toggle_layout.addWidget(self.conf_toggle_button, 0, 0, 1, 11, QtCore.Qt.AlignCenter)
+        self.toggle_conf_arrow = QtGui.QToolButton(text="")
+        self.toggle_conf_arrow.setStyleSheet(toggle_button_css)
+        self.toggle_conf_arrow.setArrowType(QtGui.Qt.UpArrow)
+        self.toggle_conf_arrow.clicked.connect(self.ToggleRepoWidgets)
+        self.conf_toggle_layout.addWidget(self.toggle_conf_arrow, 0, 12, 1, 1)
         self.conf_toggle_widget.setLayout(self.conf_toggle_layout)
 
         # Set up the configuration widget tree item
@@ -424,6 +437,9 @@ class OCCIWorkbench ( Workbench ):
         self.comps_widget_item.setExpanded(settings.value('ui/comps_expanded') == 'yes')
         self.conf_widget_item.setExpanded(settings.value('ui/params_expanded') == 'yes')
 
+        # Make sure all the toggle icons start out in the right state
+        self.UpdateTreeToggleIcons()
+
         # Add our collapsible tree GUI arrangement to the dock
         main_vbox.addWidget(tree_widget)
 
@@ -444,22 +460,51 @@ class OCCIWorkbench ( Workbench ):
         occi_dock.setWidget(scroll_area)
 
 
-    def toggle_repo_widgets(self):
+    def UpdateTreeToggleIcons(self):
+        """
+        The toggle indicators on this UI are custom, so they have to be handled manually.
+        """
+        from PySide import QtGui
+
+        # The repos indicator
+        if self.repo_widget_item.isExpanded() == True:
+            self.toggle_repos_arrow.setArrowType(QtGui.Qt.DownArrow)
+        else:
+            self.toggle_repos_arrow.setArrowType(QtGui.Qt.RightArrow)
+
+        # The components indicator
+        if self.comps_widget_item.isExpanded() == True:
+            self.toggle_comps_arrow.setArrowType(QtGui.Qt.DownArrow)
+        else:
+            self.toggle_comps_arrow.setArrowType(QtGui.Qt.RightArrow)
+
+        # The parameters indicator
+        if self.conf_widget_item.isExpanded() == True:
+            self.toggle_conf_arrow.setArrowType(QtGui.Qt.DownArrow)
+        else:
+            self.toggle_conf_arrow.setArrowType(QtGui.Qt.RightArrow)
+
+
+    def ToggleRepoWidgets(self):
         """
         Used to toggle the repo widgets.
         """
         from PySide import QtGui
         from PySide.QtCore import QSettings
-        print(self.repo_widget_item.isExpanded())
+
         # Save the new state as a setting
         settings = QSettings("OCCI", "occi-freecad-plugin")
         settings.setValue("ui/repos_expanded", 'yes' if not self.repo_widget_item.isExpanded() else 'no')
         settings.sync()
 
+        # Set the expanded state
         self.repo_widget_item.setExpanded(not self.repo_widget_item.isExpanded())
 
+        # Update the indicator arrow
+        self.UpdateTreeToggleIcons()
 
-    def toggle_comps_widgets(self):
+
+    def ToggleCompsWidgets(self):
         """
         Used to toggle the components widgets.
         """
@@ -473,8 +518,11 @@ class OCCIWorkbench ( Workbench ):
         # Set the collapsed state of the tree item
         self.comps_widget_item.setExpanded(not self.comps_widget_item.isExpanded())
 
+        # Update the indicator arrow
+        self.UpdateTreeToggleIcons()
 
-    def toggle_conf_widgets(self):
+
+    def ToggleParamsWidgets(self):
         """
         Used to toggle the configuration widgets.
         """
@@ -487,6 +535,9 @@ class OCCIWorkbench ( Workbench ):
 
         # Set the collapsed state of the tree item
         self.conf_widget_item.setExpanded(not self.conf_widget_item.isExpanded())
+
+        # Update the indicator arrow
+        self.UpdateTreeToggleIcons()
 
 
     def AddRepository(self):
