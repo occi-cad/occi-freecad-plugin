@@ -939,7 +939,7 @@ class OCCIWorkbench ( Workbench ):
         download_url = self.BuildSTEPURL(base_url)
 
         # We need a temporary file to download the STEP file into
-        self.temp_file = tempfile.NamedTemporaryFile(suffix='.step')
+        self.temp_file = tempfile.NamedTemporaryFile(suffix='.step', delete=False)
 
         # Let the user know that something is going on
         self.search_progress_bar.setValue(10)
@@ -952,15 +952,15 @@ class OCCIWorkbench ( Workbench ):
         with requests.get(download_url, stream=True) as response:
             response.raise_for_status()
             if response.status_code == 200:
-                with open(self.temp_file.name, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        # Let the user know that work is being done
-                        progress += 10
-                        self.search_progress_bar.setTextVisible(True)
-                        self.search_progress_bar.setValue(progress)
-                        QtCore.QCoreApplication.processEvents()
+                # with open(self.temp_file.name, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    # Let the user know that work is being done
+                    progress += 10
+                    self.search_progress_bar.setTextVisible(True)
+                    self.search_progress_bar.setValue(progress)
+                    QtCore.QCoreApplication.processEvents()
 
-                        f.write(chunk)
+                    self.temp_file.write(chunk)
             elif response.status_code == 404:
                 FreeCAD.Console.PrintError("OCCI ERROR: The model you have requested does not seem to exist on the server.\r\n")
             elif response.status_code == 500:
@@ -974,6 +974,9 @@ class OCCIWorkbench ( Workbench ):
         self.search_progress_bar.setTextVisible(False)
         self.search_progress_bar.setValue(0)
         QtCore.QCoreApplication.processEvents()
+
+        # Close the file so that it can be opened somewhere else
+        self.temp_file.close()
 
         return self.temp_file.name
 
