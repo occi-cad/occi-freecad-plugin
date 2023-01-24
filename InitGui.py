@@ -403,7 +403,7 @@ class OCCIWorkbench ( Workbench ):
         self.toggle_comps_arrow = QtGui.QToolButton(text="")
         self.toggle_comps_arrow.setStyleSheet(toggle_button_css)
         self.toggle_comps_arrow.setArrowType(QtGui.Qt.UpArrow)
-        self.toggle_comps_arrow.clicked.connect(self.ToggleRepoWidgets)
+        self.toggle_comps_arrow.clicked.connect(self.ToggleCompsWidgets)
         self.comps_toggle_layout.addWidget(self.toggle_comps_arrow, 0, 12, 1, 1)
         self.comps_toggle_widget.setLayout(self.comps_toggle_layout)
 
@@ -425,7 +425,7 @@ class OCCIWorkbench ( Workbench ):
         self.toggle_conf_arrow = QtGui.QToolButton(text="")
         self.toggle_conf_arrow.setStyleSheet(toggle_button_css)
         self.toggle_conf_arrow.setArrowType(QtGui.Qt.UpArrow)
-        self.toggle_conf_arrow.clicked.connect(self.ToggleRepoWidgets)
+        self.toggle_conf_arrow.clicked.connect(self.ToggleParamsWidgets)
         self.conf_toggle_layout.addWidget(self.toggle_conf_arrow, 0, 12, 1, 1)
         self.conf_toggle_widget.setLayout(self.conf_toggle_layout)
 
