@@ -27,15 +27,18 @@ class OCCIWorkbench ( Workbench ):
         settings = QSettings("OCCI", "occi-freecad-plugin")
         is_first_run = settings.value('misc/is_first_run')
 
+        # Let the user know where the settings file is
+        FreeCAD.Console.PrintMessage("OCCI Settings File: " + settings.fileName() + "\r\n")
+
         # If this is the first run, set some defaults
         if is_first_run == None:
             # Make sure we do not enter this section again
             settings.setValue('misc/is_first_run', False)
 
             # Give sane defaults for all the settings
-            settings.setValue('ui/repos_expanded', 'yes')
+            settings.setValue('ui/repos_expanded', 'no')
             settings.setValue('ui/comps_expanded', 'yes')
-            settings.setValue('ui/params_expanded', 'yes')
+            settings.setValue('ui/params_expanded', 'no')
             settings.setValue('ui/auto_update', 'no')
             settings.setValue('data/repo_list', {'list': [{'use': True, 'library': 'OCCI test', 'maintainer': 'Mark van der Net', 'models_url': 'https://occi.archiyou.nl'}]})
 
@@ -93,7 +96,9 @@ class OCCIWorkbench ( Workbench ):
         from PySide import QtGui, QtCore
         from PySide.QtCore import QSettings
 
+        # The toggle and basic button styles
         toggle_button_css = "border:none;background-color:#D8D8D8;font-size:18px;"
+        general_button_css = "background-color:#555555;color:white;font-size:12px;border:none;padding:8px;border-radius:4px;"
 
         # Make sure this method has access to the settings
         settings = QtCore.QSettings("OCCI", "occi-freecad-plugin")
@@ -113,7 +118,7 @@ class OCCIWorkbench ( Workbench ):
         intro_lbl.setTextFormat(QtCore.Qt.RichText)
         intro_lbl.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         intro_lbl.setOpenExternalLinks(True)
-        intro_lbl.setStyleSheet("margin-top:10px;font-size:14px;")
+        intro_lbl.setStyleSheet("margin-top:10px;font-size:12px;")
         intro_lbl.setText('Parametric CAD components for all. <a href="https://github.com/occi-cad/docs/blob/main/README.md">About</a>')
         main_vbox.addWidget(intro_lbl)
 
@@ -123,7 +128,7 @@ class OCCIWorkbench ( Workbench ):
         docs_lbl.setTextFormat(QtCore.Qt.RichText)
         docs_lbl.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         docs_lbl.setOpenExternalLinks(True)
-        docs_lbl.setStyleSheet("margin-bottom:10px;font-size:14px;")
+        docs_lbl.setStyleSheet("margin-bottom:10px;font-size:12px;")
         docs_lbl.setText('<a href="https://github.com/occi-cad/occi-freecad-plugin/blob/main/docs/index.md">Documentation</a>')
         main_vbox.addWidget(docs_lbl)
 
@@ -141,19 +146,21 @@ class OCCIWorkbench ( Workbench ):
         repos_1_lbl.setTextFormat(QtCore.Qt.RichText)
         repos_1_lbl.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
         repos_1_lbl.setOpenExternalLinks(True)
-        repos_1_lbl.setStyleSheet("font-size:14px;")
+        repos_1_lbl.setStyleSheet("font-size:12px;")
         repos_1_lbl.setText('We gather tested OCCI libraries at <a href="https://github.com/occi-cad/scriptlibrary">github.com/occi-cad</a>')
         repos_controls_layout.addWidget(repos_1_lbl)
         repos_2_lbl = QtGui.QLabel()
         repos_2_lbl.setAlignment(QtCore.Qt.AlignCenter)
-        repos_2_lbl.setStyleSheet("font-size:14px;")
+        repos_2_lbl.setStyleSheet("font-size:12px;")
         repos_2_lbl.setText("You can also add others manually")
         repos_controls_layout.addWidget(repos_2_lbl)
 
         # The table holding the list of repositories
-        self.repos_tbl = QtGui.QTableWidget(4, 4)
-        self.repos_tbl.setStyleSheet("border:none;font-size:14px;")
-        self.repos_tbl.setMaximumHeight(175)
+        self.repos_tbl = QtGui.QTableWidget(1, 4)
+        self.repos_tbl.setStyleSheet("border:none;font-size:12px;")
+        self.repos_tbl.setMinimumHeight(50)
+        self.repos_tbl.setMaximumHeight(50)
+        self.repos_tbl.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.repos_tbl.setHorizontalHeaderLabels(['use', 'name', 'curated by', 'remove'])
         self.repos_tbl.verticalHeader().setVisible(False)
         header = self.repos_tbl.horizontalHeader()
@@ -215,19 +222,19 @@ class OCCIWorkbench ( Workbench ):
         self.add_txt = QtGui.QLineEdit()
         # self.add_txt.setStyleSheet("border: 1px solid gray;")
         self.add_txt.setPlaceholderText("New OCCI URL")
-        self.add_txt.setStyleSheet("font-size:14px;")
+        self.add_txt.setStyleSheet("font-size:12px;")
         self.add_txt.returnPressed.connect(self.AddRepository)
         add_layout.addWidget(self.add_txt)
-        add_btn = QtGui.QPushButton(text="Add Respository")
+        add_btn = QtGui.QPushButton(text="Add Repository")
         add_btn.clicked.connect(self.AddRepository)
         add_btn.setMinimumHeight(30)
-        add_btn.setStyleSheet("background-color:#DDDDDD;font-size:14px;")
+        add_btn.setStyleSheet(general_button_css)
         add_layout.addWidget(add_btn)
         repos_controls_layout.addLayout(add_layout)
 
         # Progress bar to keep users from guessing if there is work being done in the background
         self.repos_progress_bar = QtGui.QProgressBar()
-        self.repos_progress_bar.setStyleSheet("font-size:14px;")
+        self.repos_progress_bar.setStyleSheet("font-size:12px;")
         self.repos_progress_bar.setMinimum(0)
         self.repos_progress_bar.setMaximum(100)
         repos_controls_layout.addWidget(self.repos_progress_bar)
@@ -249,11 +256,11 @@ class OCCIWorkbench ( Workbench ):
         search_layout = QtGui.QHBoxLayout()
         self.search_txt = QtGui.QLineEdit()
         self.search_txt.setPlaceholderText("Component search text")
-        self.search_txt.setStyleSheet("font-size:14px;")
+        self.search_txt.setStyleSheet("font-size:12px;")
         self.search_txt.returnPressed.connect(self.DoSearch)
         search_layout.addWidget(self.search_txt)
         search_btn = QtGui.QPushButton(text="Search")
-        search_btn.setStyleSheet("font-size:14px;")
+        search_btn.setStyleSheet(general_button_css)
         search_btn.clicked.connect(self.SearchComponents)
         search_layout.addWidget(search_btn)
         comps_controls_layout.addLayout(search_layout)
@@ -261,13 +268,14 @@ class OCCIWorkbench ( Workbench ):
         # Label that tells the user how many results were returned
         self.results_num_lbl = QtGui.QLabel(text="")
         self.results_num_lbl.setAlignment(QtCore.Qt.AlignCenter)
-        self.results_num_lbl.setStyleSheet("font-size:14px;")
+        self.results_num_lbl.setStyleSheet("font-size:12px;")
         comps_controls_layout.addWidget(self.results_num_lbl)
 
         # The table that holds the searched-for components
-        self.results_tbl = QtGui.QTableWidget(4, 3)
-        self.results_tbl.setStyleSheet("border:none;font-size:14px;")
-        self.results_tbl.setMaximumHeight(140)
+        self.results_tbl = QtGui.QTableWidget(1, 3)
+        self.results_tbl.setStyleSheet("border:none;font-size:12px;")
+        self.results_tbl.setMinimumHeight(50)
+        self.results_tbl.setMaximumHeight(50)
         self.results_tbl.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.results_tbl.clicked.connect(self.LoadParameters)
         self.results_tbl.setHorizontalHeaderLabels(['name', 'author', 'description'])
@@ -280,7 +288,7 @@ class OCCIWorkbench ( Workbench ):
         # Button to add and configure the component
         component_btn_layout = QtGui.QHBoxLayout()
         component_btn = QtGui.QPushButton(text="Add Component")
-        component_btn.setStyleSheet("font-size:14px;")
+        component_btn.setStyleSheet(general_button_css)
         component_btn.clicked.connect(self.LoadComponent)
         component_btn_layout.addStretch()
         component_btn_layout.addWidget(component_btn)
@@ -288,7 +296,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Progress bar to keep users from guessing if there is work being done in the background
         self.search_progress_bar = QtGui.QProgressBar()
-        self.search_progress_bar.setStyleSheet("font-size:14px;")
+        self.search_progress_bar.setStyleSheet("font-size:12px;")
         self.search_progress_bar.setMinimum(0)
         self.search_progress_bar.setMaximum(100)
         comps_controls_layout.addWidget(self.search_progress_bar)
@@ -309,7 +317,7 @@ class OCCIWorkbench ( Workbench ):
         # Add the description labels
         self.selected_comp_lbl = QtGui.QLabel(text="No component selected")
         self.selected_comp_lbl.setAlignment(QtCore.Qt.AlignCenter)
-        self.selected_comp_lbl.setStyleSheet("font-size:14px;")
+        self.selected_comp_lbl.setStyleSheet("font-size:12px;")
         self.config_controls_layout.addWidget(self.selected_comp_lbl)
         self.model_info_lbl = QtGui.QLabel(text="No model loaded")
         self.model_info_lbl.setStyleSheet("color:#aaaaaa;font-size:12px;")
@@ -328,9 +336,9 @@ class OCCIWorkbench ( Workbench ):
         self.config_controls_layout.addWidget(params_lbl)
 
         # Add the parameters table
-        self.params_tbl = QtGui.QTableWidget(4, 3)
-        self.params_tbl.setStyleSheet("font-size:14px;")
-        self.params_tbl.setMaximumHeight(121)
+        self.params_tbl = QtGui.QTableWidget(1, 3)
+        self.params_tbl.setStyleSheet("font-size:12px;")
+        self.params_tbl.setMaximumHeight(40)
         self.params_tbl.verticalHeader().setVisible(False)
         self.params_tbl.horizontalHeader().setVisible(False)
         header = self.params_tbl.horizontalHeader()
@@ -342,12 +350,12 @@ class OCCIWorkbench ( Workbench ):
         # Update controls
         update_layout = QtGui.QHBoxLayout()
         self.auto_update_chk = QtGui.QCheckBox(text="auto update")
-        self.auto_update_chk.setStyleSheet("font-size:14px;")
+        self.auto_update_chk.setStyleSheet("font-size:12px;")
         self.auto_update_chk.setChecked(settings.value('ui/auto_update') == 'yes')
         self.auto_update_chk.stateChanged.connect(self.CheckBoxChanged)
         update_layout.addWidget(self.auto_update_chk)
         update_btn = QtGui.QPushButton(text="Update Component")
-        update_btn.setStyleSheet("font-size:14px;")
+        update_btn.setStyleSheet(general_button_css)
         update_btn.clicked.connect(self.UpdateComponent)
         update_layout.addWidget(update_btn)
         self.config_controls_layout.addLayout(update_layout)
@@ -648,6 +656,10 @@ class OCCIWorkbench ( Workbench ):
                     new_row_index = row_index
                     break
 
+            # Resize the table up to a maximum of 4 rows
+            if self.repos_tbl.rowCount() > 0 and self.repos_tbl.rowCount() < 5:
+                self.repos_tbl.setMaximumHeight(self.repos_tbl.rowCount() * 50)
+
             # Add a new set of widgets to the last line
             new_chkbox = QtGui.QCheckBox(Checked=True)
 
@@ -817,6 +829,10 @@ class OCCIWorkbench ( Workbench ):
                         FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being generated. Please contact that server's administrator.")
                     else:
                         self.results_num_lbl.setText("Search error")
+
+        # Set the table height up to 4 rows
+        if self.results_tbl.rowCount() > 0 and self.results_tbl.rowCount() < 5:
+            self.results_tbl.setMaximumHeight(self.results_tbl.rowCount() * 50)
 
         # Give the user a flash of 100%
         self.search_progress_bar.setValue(100)
@@ -1347,5 +1363,8 @@ class OCCIWorkbench ( Workbench ):
 
                 self.presets_layout.addWidget(self.presets_controls[-1], row, col, 1, 1, QtCore.Qt.AlignCenter)
 
+        # Set the table height up to 4 rows
+        if self.params_tbl.rowCount() > 0 and self.params_tbl.rowCount() < 5:
+            self.params_tbl.setMaximumHeight(self.params_tbl.rowCount() * 40)
 
 Gui.addWorkbench(OCCIWorkbench())
