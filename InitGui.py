@@ -227,6 +227,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Progress bar to keep users from guessing if there is work being done in the background
         self.repos_progress_bar = QtGui.QProgressBar()
+        self.repos_progress_bar.setStyleSheet("font-size:14px;")
         self.repos_progress_bar.setMinimum(0)
         self.repos_progress_bar.setMaximum(100)
         repos_controls_layout.addWidget(self.repos_progress_bar)
@@ -287,6 +288,7 @@ class OCCIWorkbench ( Workbench ):
 
         # Progress bar to keep users from guessing if there is work being done in the background
         self.search_progress_bar = QtGui.QProgressBar()
+        self.search_progress_bar.setStyleSheet("font-size:14px;")
         self.search_progress_bar.setMinimum(0)
         self.search_progress_bar.setMaximum(100)
         comps_controls_layout.addWidget(self.search_progress_bar)
