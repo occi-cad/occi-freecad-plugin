@@ -978,7 +978,6 @@ class OCCIWorkbench ( Workbench ):
 
         # Request the STEP download from the OCCI server and account for large file size
         with requests.get(download_url, stream=True) as response:
-            response.raise_for_status()
             if response.status_code == 200:
                 # with open(self.temp_file.name, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
