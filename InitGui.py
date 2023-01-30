@@ -99,6 +99,7 @@ class OCCIWorkbench ( Workbench ):
         # The toggle and basic button styles
         toggle_button_css = "border:none;background-color:#D8D8D8;font-size:18px;"
         general_button_css = "background-color:#555555;color:white;font-size:12px;border:none;padding:8px;border-radius:4px;"
+        search_field_css = "font-size:12px;border:none;background-color:#EEEEEE;padding-top:5px;padding-bottom:5px;"
 
         # Make sure this method has access to the settings
         settings = QtCore.QSettings("OCCI", "occi-freecad-plugin")
@@ -192,10 +193,6 @@ class OCCIWorkbench ( Workbench ):
             # Set the host URL label for the repo
             cur_host_txt = QtGui.QLabel()
             cur_host_txt.setAlignment(QtCore.Qt.AlignCenter)
-            # cur_host_txt.setTextFormat(QtCore.Qt.RichText)
-            # cur_host_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
-            # cur_host_txt.setOpenExternalLinks(True)
-            # cur_host_txt.setText('<a href="' + repo['host_url'] + '">' + repo['host_name'] + '</a>')
             cur_host_txt.setText(repo['maintainer'])
             self.repos_tbl.setCellWidget(row, 2, cur_host_txt)
 
@@ -222,7 +219,7 @@ class OCCIWorkbench ( Workbench ):
         self.add_txt = QtGui.QLineEdit()
         # self.add_txt.setStyleSheet("border: 1px solid gray;")
         self.add_txt.setPlaceholderText("New OCCI URL")
-        self.add_txt.setStyleSheet("font-size:12px;")
+        self.add_txt.setStyleSheet(search_field_css)
         self.add_txt.returnPressed.connect(self.AddRepository)
         add_layout.addWidget(self.add_txt)
         add_btn = QtGui.QPushButton(text="Add Repository")
@@ -256,7 +253,7 @@ class OCCIWorkbench ( Workbench ):
         search_layout = QtGui.QHBoxLayout()
         self.search_txt = QtGui.QLineEdit()
         self.search_txt.setPlaceholderText("Component search text")
-        self.search_txt.setStyleSheet("font-size:12px;")
+        self.search_txt.setStyleSheet(search_field_css)
         self.search_txt.returnPressed.connect(self.DoSearch)
         search_layout.addWidget(self.search_txt)
         search_btn = QtGui.QPushButton(text="Search")
@@ -339,7 +336,7 @@ class OCCIWorkbench ( Workbench ):
         # Add the parameters table
         self.params_tbl = QtGui.QTableWidget(1, 3)
         self.params_tbl.setStyleSheet("font-size:12px;")
-        self.params_tbl.setMaximumHeight(40)
+        self.params_tbl.setMaximumHeight(30)
         self.params_tbl.verticalHeader().setVisible(False)
         self.params_tbl.horizontalHeader().setVisible(False)
         header = self.params_tbl.horizontalHeader()
