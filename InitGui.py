@@ -272,7 +272,7 @@ class OCCIWorkbench ( Workbench ):
         comps_controls_layout.addWidget(self.results_num_lbl)
 
         # The table that holds the searched-for components
-        self.results_tbl = QtGui.QTableWidget(1, 3)
+        self.results_tbl = QtGui.QTableWidget(1, 4)
         self.results_tbl.setStyleSheet("border:none;font-size:12px;")
         self.results_tbl.setMinimumHeight(50)
         self.results_tbl.setMaximumHeight(50)
@@ -283,6 +283,7 @@ class OCCIWorkbench ( Workbench ):
         header.setSectionResizeMode(0, QtGui.QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QtGui.QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QtGui.QHeaderView.ResizeMode.Stretch)
+        header.setSectionHidden(3, True)
         comps_controls_layout.addWidget(self.results_tbl)
 
         # Button to add and configure the component
@@ -804,14 +805,23 @@ class OCCIWorkbench ( Workbench ):
                             if results_row == self.results_tbl.rowCount():
                                 self.results_tbl.insertRow(results_row)
 
+                            # Temporary until the API is fixed
+                            if 'author' not in json_result:
+                                json_result['author'] = 'test'
+
+                            # Make sure that we got the fields we need in the result
+                            if 'name' not in json_result or 'author' not in json_result or 'description' not in json_result:
+                                FreeCAD.Console.PrintError("OCCI ERROR: The response from the server did not have the required information.\r\n")
+
+                                # Reset the progress bar so that it does not hang
+                                self.search_progress_bar.setTextVisible(False)
+                                self.search_progress_bar.setValue(0)
+                                QtCore.QCoreApplication.processEvents()
+
+                                return
+
                             # The component name field
-                            cur_name_txt = QtGui.QLabel()
-                            cur_name_txt.setAlignment(QtCore.Qt.AlignCenter)
-                            # cur_name_txt.setTextFormat(QtCore.Qt.RichText)
-                            # cur_name_txt.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
-                            # cur_name_txt.setOpenExternalLinks(True)
-                            cur_name_txt.setText(json_result['name'])
-                            # cur_name_txt.setText('<a href="' + json_result['url'] + '">' + json_result['name'] + '</a>')
+                            cur_name_txt = QtGui.QLabel(json_result['name'])
                             self.results_tbl.setCellWidget(results_row, 0, cur_name_txt)
 
                             # The component author field
@@ -821,6 +831,10 @@ class OCCIWorkbench ( Workbench ):
                             # The component description field
                             cur_description_txt = QtGui.QLabel(json_result["description"])
                             self.results_tbl.setCellWidget(results_row, 2, cur_description_txt)
+
+                            # The hidden namespace field
+                            cur_namespace_txt = QtGui.QLabel(json_result["namespace"])
+                            self.results_tbl.setCellWidget(results_row, 3, cur_namespace_txt)
 
                             results_row += 1
                     elif response.status_code == 404:
@@ -882,11 +896,10 @@ class OCCIWorkbench ( Workbench ):
     def FindSelectedComponent(self):
         """
         Finds the highlighted component in the components table and returns
-        the name and author of a match. Returns None for both if nothing no
-        row is highlighted.
+        the namespace of a match. Returns None for both if nothing no row is
+        highlighted.
         """
-        name = None
-        author = None
+        namespace = None
 
         # Get any selected rows
         selected_rows = self.results_tbl.selectedIndexes()
@@ -895,17 +908,14 @@ class OCCIWorkbench ( Workbench ):
             selected_row = self.results_tbl.selectedIndexes()[0].row()
 
             # If there is something in the row, extract data from the row
-            name_txt = self.results_tbl.cellWidget(selected_row, 0)
-            if name_txt != None:
-                name = name_txt.text()
-            author_txt = self.results_tbl.cellWidget(selected_row, 1)
-            if author_txt != None:
-                author = author_txt.text()
+            namespace_txt = self.results_tbl.cellWidget(selected_row, 3)
+            if namespace_txt != None:
+                namespace = namespace_txt.text()
 
-        return (name, author)
+        return namespace
 
 
-    def FindMatchingJSON(self, name, author):
+    def FindMatchingJSON(self, namespace):
         """
         Finds a match in the returned JSON result and returns it
         so that it can be queried.
@@ -921,7 +931,7 @@ class OCCIWorkbench ( Workbench ):
             # Look through all of the results
             for result in self.json_search_results:
                 # See if we have a match
-                if name != None and result['name'] == name and author != None and result['author'] == author:
+                if namespace != None and result['namespace'] == namespace:
                     return result
 
         # If no match was found, tell the caller by returning None
@@ -1014,11 +1024,11 @@ class OCCIWorkbench ( Workbench ):
         """
 
         # Get the information for the selected component
-        name, author = self.FindSelectedComponent()
-        json_result = self.FindMatchingJSON(name, author)
+        namespace = self.FindSelectedComponent()
+        json_result = self.FindMatchingJSON(namespace)
 
         # Make sure there was a row selected
-        if name != None and author != None:
+        if namespace != None:
             step_file_path = self.DownloadModel(json_result['url'])
 
             # If there is not an active document, add one
@@ -1030,8 +1040,9 @@ class OCCIWorkbench ( Workbench ):
                 is_new_doc = True
 
             # Add a feature object and load the step into it
+            name = namespace.replace('/', "_")
             new_feature = ad.addObject("Part::Feature", name)
-            new_feature.Label = name + "_" + author
+            new_feature.Label = name
             new_feature.ViewObject.ShapeColor = (0.0, 1.0, 0.5)
             new_feature.ViewObject.Transparency = 0
 
@@ -1109,15 +1120,15 @@ class OCCIWorkbench ( Workbench ):
             return
 
         # Get the information for the selected component
-        name, author = self.FindSelectedComponent()
-        json_result = self.FindMatchingJSON(name, author)
+        namespace = self.FindSelectedComponent()
+        json_result = self.FindMatchingJSON(namespace)
 
         # Make sure there was a row selected
-        if name != None and author != None:
+        if namespace != None:
             step_file_path = self.DownloadModel(json_result['url'])
 
             # Find the the matching object in the active document
-            feature = ad.getObjectsByLabel(name + "_" + author)[0]
+            feature = ad.getObjectsByLabel(namespace.replace('/', '_'))[0]
             if feature != None:
                 import Part
                 new_shape = Part.Shape()
@@ -1260,18 +1271,10 @@ class OCCIWorkbench ( Workbench ):
             if self.results_tbl.cellWidget(row_index, 2) != None:
                 self.results_tbl.cellWidget(row_index, 2).setStyleSheet(highlighted_row_style)
 
-            # Get the name and author from the selected row
-            name_txt = None
-            author_txt = None
-            if self.results_tbl.cellWidget(row_index, 0) != None:
-                name_txt = self.results_tbl.cellWidget(row_index, 0).text()
-            if  self.results_tbl.cellWidget(row_index, 1) != None:
-                author_txt = self.results_tbl.cellWidget(row_index, 1).text()
-
         # Make sure we have some search results loaded
         # If there are search results, look for the matching object in them
-        name, author = self.FindSelectedComponent()
-        result = self.FindMatchingJSON(name, author)
+        namespace = self.FindSelectedComponent()
+        result = self.FindMatchingJSON(namespace)
         if result != None:
             units_used = ""
             default_preset = {}
