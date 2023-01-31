@@ -4,4 +4,4 @@ A FreeCAD plugin that allows users to query customized parametric models from OC
 
 [Preliminary Documentation](https://github.com/occi-cad/occi-freecad-plugin/blob/main/docs/index.md)
 
-![UI Overview](docs/images/ui_overview.png)
+![UI Overview](docs/images/freecad_plugin_screenshot.png)
