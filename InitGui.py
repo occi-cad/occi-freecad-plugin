@@ -158,7 +158,7 @@ class OCCIWorkbench ( Workbench ):
 
         # The table holding the list of repositories
         self.repos_tbl = QtGui.QTableWidget(1, 4)
-        self.repos_tbl.setStyleSheet("border:none;font-size:12px;")
+        self.repos_tbl.setStyleSheet("font-size:12px;")
         self.repos_tbl.setMinimumHeight(50)
         self.repos_tbl.setMaximumHeight(50)
         self.repos_tbl.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
@@ -175,6 +175,18 @@ class OCCIWorkbench ( Workbench ):
         # self.default_settings = self.LoadDefaults()
         repos = settings.value('data/repo_list')
         for repo in repos['list']:
+            # Add rows, if needed
+            if row > 0:
+                self.repos_tbl.insertRow(row)
+
+            # Resize the table up to a maximum of 2 rows
+            if self.repos_tbl.rowCount() == 1:
+                self.repos_tbl.setMinimumHeight(45)
+                self.repos_tbl.setMaximumHeight(45)
+            elif self.repos_tbl.rowCount() == 2:
+                self.repos_tbl.setMinimumHeight(2 * 40.5)
+                self.repos_tbl.setMaximumHeight(2 * 40.5)
+
             # Set the 'use' checkbox for the repo
             self.use_checks.append(QtGui.QCheckBox(objectName=repo['library'] + "_" + repo['maintainer']))
             self.use_checks[-1].setChecked(repo['use'])
@@ -205,7 +217,7 @@ class OCCIWorkbench ( Workbench ):
 
             row += 1
 
-        ## Make sure all the columns are the correct size
+        # Make sure all the columns are the correct size
         self.repos_tbl.resizeColumnToContents(0)
         self.repos_tbl.resizeColumnToContents(1)
         self.repos_tbl.resizeColumnToContents(2)
@@ -231,7 +243,8 @@ class OCCIWorkbench ( Workbench ):
 
         # Progress bar to keep users from guessing if there is work being done in the background
         self.repos_progress_bar = QtGui.QProgressBar()
-        self.repos_progress_bar.setStyleSheet("font-size:12px;")
+        self.repos_progress_bar.setStyleSheet("font-size:12px;border:none;")
+        self.repos_progress_bar.setAlignment(QtCore.Qt.AlignCenter)
         self.repos_progress_bar.setMinimum(0)
         self.repos_progress_bar.setMaximum(100)
         repos_controls_layout.addWidget(self.repos_progress_bar)
@@ -270,7 +283,7 @@ class OCCIWorkbench ( Workbench ):
 
         # The table that holds the searched-for components
         self.results_tbl = QtGui.QTableWidget(1, 4)
-        self.results_tbl.setStyleSheet("border:none;font-size:12px;")
+        self.results_tbl.setStyleSheet("font-size:12px;")
         self.results_tbl.setMinimumHeight(50)
         self.results_tbl.setMaximumHeight(50)
         self.results_tbl.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -294,7 +307,8 @@ class OCCIWorkbench ( Workbench ):
 
         # Progress bar to keep users from guessing if there is work being done in the background
         self.search_progress_bar = QtGui.QProgressBar()
-        self.search_progress_bar.setStyleSheet("font-size:12px;")
+        self.search_progress_bar.setStyleSheet("font-size:12px;border:none;")
+        self.search_progress_bar.setAlignment(QtCore.Qt.AlignCenter)
         self.search_progress_bar.setMinimum(0)
         self.search_progress_bar.setMaximum(100)
         comps_controls_layout.addWidget(self.search_progress_bar)
@@ -569,14 +583,17 @@ class OCCIWorkbench ( Workbench ):
 
         # Get the repository URL entered by the user
         repo_url = self.add_txt.text()
+        if repo_url[-1] == "/":
+            repo_url = repo_url[:-1]
 
         # Let the user know about common errors
         if repo_url == "":
             FreeCAD.Console.PrintWarning("OCCI: Please enter a Repository URL.\r\n")
             return
-        elif not repo_url.startswith("https://"):
-            FreeCAD.Console.PrintWarning("OCCI: Only https repositories are supported.\r\n")
-            return
+        # Disable for local repository development
+        # elif not repo_url.startswith("https://"):
+        #     FreeCAD.Console.PrintWarning("OCCI: Only https repositories are supported.\r\n")
+        #     return
 
         # Let the user know that something is going on
         self.repos_progress_bar.setTextVisible(True)
@@ -654,9 +671,13 @@ class OCCIWorkbench ( Workbench ):
                     new_row_index = row_index
                     break
 
-            # Resize the table up to a maximum of 4 rows
-            if self.repos_tbl.rowCount() > 0 and self.repos_tbl.rowCount() < 5:
-                self.repos_tbl.setMaximumHeight(self.repos_tbl.rowCount() * 50)
+            # Resize the table up to a maximum of 2 rows
+            self.repos_tbl.setMinimumHeight(2 * 40.5)
+            self.repos_tbl.setMaximumHeight(2 * 40.5)
+
+            # To force the toggle widget and its layout to update
+            self.ToggleRepoWidgets()
+            self.ToggleRepoWidgets()
 
             # Add a new set of widgets to the last line
             new_chkbox = QtGui.QCheckBox(Checked=True)
@@ -688,9 +709,11 @@ class OCCIWorkbench ( Workbench ):
             # Save the new repository's information in the settings
             settings = QtCore.QSettings("OCCI", "occi-freecad-plugin")
             repo_list = settings.value('data/repo_list')
-            if repo_url[-1] == "/":
-                repo_url = repo_url[-1] = ""
-            repo_list['list'].append({'use': True, 'library': server_info['library'], 'maintainer': server_info['maintainer'], 'models_url': repo_url})
+
+            # Assemble the new entry and make sure it is actually a new one
+            new_repo_item = {'use': True, 'library': server_info['library'], 'maintainer': server_info['maintainer'], 'models_url': repo_url}
+            if new_repo_item not in repo_list['list']:
+                repo_list['list'].append(new_repo_item)
             settings.setValue('data/repo_list', repo_list)
             settings.sync()
         elif response.status_code == 404:
@@ -835,15 +858,20 @@ class OCCIWorkbench ( Workbench ):
 
                             results_row += 1
                     elif response.status_code == 404:
-                        FreeCAD.Console.PrintError("OCCI ERROR: The model was not found in the OCCI repository.")
+                        FreeCAD.Console.PrintMessage("OCCI: The model was not found in the OCCI repository.\r\n")
                     elif response.status_code == 500:
-                        FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being generated. Please contact that server's administrator.")
+                        FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being generated. Please contact that server's administrator.\r\n")
                     else:
                         self.results_num_lbl.setText("Search error")
 
         # Set the table height up to 4 rows
         if self.results_tbl.rowCount() > 0 and self.results_tbl.rowCount() < 5:
             self.results_tbl.setMaximumHeight(self.results_tbl.rowCount() * 50)
+
+        # Make sure all the columns are the correct size
+        self.results_tbl.resizeColumnToContents(0)
+        self.results_tbl.resizeColumnToContents(1)
+        self.results_tbl.resizeColumnToContents(2)
 
         # Give the user a flash of 100%
         self.search_progress_bar.setValue(100)
@@ -995,6 +1023,12 @@ class OCCIWorkbench ( Workbench ):
                     QtCore.QCoreApplication.processEvents()
 
                     self.temp_file.write(chunk)
+            elif response.status_code == 202:
+                FreeCAD.Console.PrintMessage("OCCI: Long runner script detected. Processing will continue in the background.\r\n")
+
+                # Get the background process information
+                bg_info = response.json()
+                print(bg_info['celery_task_id'])
             elif response.status_code == 404:
                 FreeCAD.Console.PrintError("OCCI ERROR: The model you have requested does not seem to exist on the server.\r\n")
             elif response.status_code == 500:
@@ -1180,6 +1214,14 @@ class OCCIWorkbench ( Workbench ):
                 repo_list['list'].pop(row_index)
                 settings.setValue('data/repo_list', repo_list)
                 settings.sync()
+
+                # Resize the table up to a maximum of 2 rows
+                self.repos_tbl.setMinimumHeight(self.repos_tbl.rowCount() * 40.5)
+                self.repos_tbl.setMaximumHeight(2 * 40.5)
+
+                # To force the toggle widget and its layout to update
+                self.ToggleRepoWidgets()
+                self.ToggleRepoWidgets()
 
 
     def RemovePreviousPresets(self):
