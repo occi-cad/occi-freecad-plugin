@@ -1002,7 +1002,7 @@ class OCCIWorkbench ( Workbench ):
         download_url = self.BuildSTEPURL(base_url)
 
         # We need a temporary file to download the STEP file into
-        self.temp_file = tempfile.NamedTemporaryFile(suffix='.step', delete=False)
+        self.temp_file = tempfile.NamedTemporaryFile(suffix='.step', delete=False, mode='wb')
 
         # Let the user know that something is going on
         self.search_progress_bar.setValue(10)
@@ -1216,8 +1216,12 @@ class OCCIWorkbench ( Workbench ):
                 settings.sync()
 
                 # Resize the table up to a maximum of 2 rows
-                self.repos_tbl.setMinimumHeight(self.repos_tbl.rowCount() * 40.5)
-                self.repos_tbl.setMaximumHeight(2 * 40.5)
+                if self.repos_tbl.rowCount() == 1:
+                    self.repos_tbl.setMinimumHeight(45)
+                    self.repos_tbl.setMaximumHeight(45)
+                else:
+                    self.repos_tbl.setMinimumHeight(2 * 40.5)
+                    self.repos_tbl.setMaximumHeight(2 * 40.5)
 
                 # To force the toggle widget and its layout to update
                 self.ToggleRepoWidgets()
@@ -1276,9 +1280,20 @@ class OCCIWorkbench ( Workbench ):
 
                 # If there is a match, set the corresponding value control
                 if param_name == key:
+                    # We have to pull find the parameter type data so we know how to handle the control
+                    namespace = self.FindSelectedComponent()
+                    result = self.FindMatchingJSON(namespace)
+                    if result != None:
+                        param_type = result['params'][param_name]['type']
+
                     # The value widget should be in the third column (index starts at 0)
                     value_widget = self.params_tbl.cellWidget(row_index, 2)
-                    value_widget.setValue(self.presets[preset_key][key])
+
+                    # Set the value differently for text vs a number
+                    if param_type == "text":
+                        value_widget.setText(self.presets[preset_key][key])
+                    else:
+                        value_widget.setValue(self.presets[preset_key][key])
 
                     # We found what we need, exit the loop
                     break
@@ -1328,14 +1343,18 @@ class OCCIWorkbench ( Workbench ):
                 # Save the default for each parameter
                 default_preset[param] = result['params'][param]['default']
 
-                if not result['params'][param]['units'] in units_used:
-                    if units_used != "":
-                        units_used += "," + result['params'][param]['units']
-                    else:
-                        units_used += result['params'][param]['units']
+                # Handle cases where the parameter does not have a unit
+                if result['params'][param]['units'] != None:
+                    if not result['params'][param]['units'] in units_used:
+                        if units_used != "":
+                            units_used += "," + result['params'][param]['units']
+                        else:
+                            units_used += result['params'][param]['units']
+                else:
+                    units_used += "N/A"
 
                 # Add the name widget in the first column
-                name_lbl = QtGui.QLabel(text=result['params'][param]['name'] + " (" + result['params'][param]['units'] + ")")
+                name_lbl = QtGui.QLabel(text=result['params'][param]['name'] + " (" + str(result['params'][param]['units']) + ")")
                 name_lbl.setAlignment(QtCore.Qt.AlignCenter)
                 self.params_tbl.setCellWidget(row_index, 0, name_lbl)
 
