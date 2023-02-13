@@ -1351,6 +1351,35 @@ class OCCIWorkbench ( Workbench ):
                     break
 
 
+    def ResizeParamsTable(self):
+        """
+        Handles the task of resizing the search parameters table height to fit an
+        appropriate number of rows.
+        """
+
+        # Resize each row to fit its contents, which should all be the same height, based on font size
+        for row_index in range(0, self.params_tbl.rowCount()):
+            self.params_tbl.resizeRowToContents(row_index)
+
+        # Set the size of the table appropriately, up to a max number of rows
+        max_results_rows = 4
+        max_results_row_height = self.params_tbl.rowHeight(0)
+        num_results = self.params_tbl.rowCount()
+        if num_results == 0:
+            self.params_tbl.setMinimumHeight(max_results_row_height)
+            self.params_tbl.setMaximumHeight(max_results_row_height)
+        elif num_results >= 1 and num_results <= max_results_rows:
+            self.params_tbl.setMinimumHeight(num_results * max_results_row_height)
+            self.params_tbl.setMaximumHeight(num_results * max_results_row_height)
+        else:
+            self.params_tbl.setMinimumHeight(max_results_rows * max_results_row_height)
+            self.params_tbl.setMaximumHeight(max_results_rows * max_results_row_height)
+
+        # Work-around to make sure resizing changes take effect
+        self.ToggleParamsWidgets()
+        self.ToggleParamsWidgets()
+
+
     def LoadParameters(self):
         """
         Loads the parameters for the selected component in the component search results table.
@@ -1360,6 +1389,9 @@ class OCCIWorkbench ( Workbench ):
 
         # The stylesheet of the highlighted row
         highlighted_row_style = "background-color:#AAAAAA;"
+
+        # Reset the table to only having one row
+        self.params_tbl.setRowCount(1)
 
         # Clear any previous row highlights and all of the label data
         self.ClearPreviousComponentResults()
@@ -1475,8 +1507,8 @@ class OCCIWorkbench ( Workbench ):
 
                 self.presets_layout.addWidget(self.presets_controls[-1], row, col, 1, 1, QtCore.Qt.AlignCenter)
 
-        # Set the table height up to 4 rows
-        if self.params_tbl.rowCount() > 0 and self.params_tbl.rowCount() < 5:
-            self.params_tbl.setMaximumHeight(self.params_tbl.rowCount() * 40)
+        # Resize the params table to the correct height
+        self.ResizeParamsTable()
+
 
 Gui.addWorkbench(OCCIWorkbench())
