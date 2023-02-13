@@ -133,6 +133,14 @@ class OCCIWorkbench ( Workbench ):
         docs_lbl.setText('<a href="https://github.com/occi-cad/occi-freecad-plugin/blob/main/docs/index.md">Documentation</a>')
         main_vbox.addWidget(docs_lbl)
 
+        # Progress bar to keep users from guessing if there is work being done in the background
+        self.progress_bar = QtGui.QProgressBar()
+        self.progress_bar.setStyleSheet("font-size:12px;border:none;")
+        self.progress_bar.setAlignment(QtCore.Qt.AlignCenter)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        main_vbox.addWidget(self.progress_bar)
+
         #####################################################################
         # Repos collapsible widget start                                    #
         #####################################################################
@@ -241,14 +249,6 @@ class OCCIWorkbench ( Workbench ):
         add_layout.addWidget(add_btn)
         repos_controls_layout.addLayout(add_layout)
 
-        # Progress bar to keep users from guessing if there is work being done in the background
-        self.repos_progress_bar = QtGui.QProgressBar()
-        self.repos_progress_bar.setStyleSheet("font-size:12px;border:none;")
-        self.repos_progress_bar.setAlignment(QtCore.Qt.AlignCenter)
-        self.repos_progress_bar.setMinimum(0)
-        self.repos_progress_bar.setMaximum(100)
-        repos_controls_layout.addWidget(self.repos_progress_bar)
-
         #####################################################################
         # Repos collapsible widget end                                      #
         #####################################################################
@@ -304,14 +304,6 @@ class OCCIWorkbench ( Workbench ):
         component_btn_layout.addStretch()
         component_btn_layout.addWidget(component_btn)
         comps_controls_layout.addLayout(component_btn_layout)
-
-        # Progress bar to keep users from guessing if there is work being done in the background
-        self.search_progress_bar = QtGui.QProgressBar()
-        self.search_progress_bar.setStyleSheet("font-size:12px;border:none;")
-        self.search_progress_bar.setAlignment(QtCore.Qt.AlignCenter)
-        self.search_progress_bar.setMinimum(0)
-        self.search_progress_bar.setMaximum(100)
-        comps_controls_layout.addWidget(self.search_progress_bar)
 
         #####################################################################
         # Add component collapsible widget end                              #
@@ -596,8 +588,8 @@ class OCCIWorkbench ( Workbench ):
         #     return
 
         # Let the user know that something is going on
-        self.repos_progress_bar.setTextVisible(True)
-        self.repos_progress_bar.setValue(20)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setValue(20)
         QtCore.QCoreApplication.processEvents()
 
         # Attempt to load the URL
@@ -610,13 +602,13 @@ class OCCIWorkbench ( Workbench ):
         # If there was no response, there is no reason to continue
         if response == None:
             # Make sure that the progress bar does not hang
-            self.repos_progress_bar.setTextVisible(False)
-            self.repos_progress_bar.setValue(0)
+            self.progress_bar.setTextVisible(False)
+            self.progress_bar.setValue(0)
             QtCore.QCoreApplication.processEvents()
             return
 
         # Let the user know there has been progress
-        self.repos_progress_bar.setValue(70)
+        self.progress_bar.setValue(70)
         QtCore.QCoreApplication.processEvents()
 
         # Check the status code to see if the request succeeded
@@ -628,8 +620,8 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintError("OCCI ERROR: There was an error parsing the JSON content. Please ensure that the provided URL points to a valid OCCI server.\r\n")
 
                 # Make sure that the progress bar does not hang
-                self.repos_progress_bar.setTextVisible(False)
-                self.repos_progress_bar.setValue(0)
+                self.progress_bar.setTextVisible(False)
+                self.progress_bar.setValue(0)
                 QtCore.QCoreApplication.processEvents()
 
                 return
@@ -639,8 +631,8 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintError("OCCI ERROR: The OCCI repository is not presenting the correct data to be added.\r\n")
 
                 # Make sure that the progress bar does not hang
-                self.repos_progress_bar.setTextVisible(False)
-                self.repos_progress_bar.setValue(0)
+                self.progress_bar.setTextVisible(False)
+                self.progress_bar.setValue(0)
                 QtCore.QCoreApplication.processEvents()
 
                 return
@@ -650,8 +642,8 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintWarning("OCCI: Duplicate repository entries are not permitted. If this repository server should not be a duplicate, contact the system administrator to make sure they do not have a conflicting name.\r\n")
 
                 # Make sure that the progress bar does not hang
-                self.repos_progress_bar.setTextVisible(False)
-                self.repos_progress_bar.setValue(0)
+                self.progress_bar.setTextVisible(False)
+                self.progress_bar.setValue(0)
                 QtCore.QCoreApplication.processEvents()
 
                 return
@@ -719,12 +711,12 @@ class OCCIWorkbench ( Workbench ):
             FreeCAD.Console.PrintError("OCCI ERROR: There was a general error while trying to load the OCCI repository data.\r\n")
 
         # Try to give the user a flash of 100%
-        self.repos_progress_bar.setValue(100)
+        self.progress_bar.setValue(100)
         QtCore.QCoreApplication.processEvents()
 
         # Let the user know that the get request is done
-        self.repos_progress_bar.setTextVisible(False)
-        self.repos_progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setValue(0)
         QtCore.QCoreApplication.processEvents()
 
 
@@ -793,8 +785,8 @@ class OCCIWorkbench ( Workbench ):
         self.results_num_lbl.setText("Searching...")
 
         # Let the user know that something is going on
-        self.search_progress_bar.setTextVisible(True)
-        self.search_progress_bar.setValue(5)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setValue(5)
         QtCore.QCoreApplication.processEvents()
 
         # Reset the table to only having one row
@@ -818,21 +810,21 @@ class OCCIWorkbench ( Workbench ):
                     response = None
                     try:
                         # Let the user know progress is being made
-                        self.search_progress_bar.setValue(10)
+                        self.progress_bar.setValue(10)
                         QtCore.QCoreApplication.processEvents()
 
                         # Request the search from the server
                         response = requests.get(models_url + '/search?q=' + self.search_txt.text())
 
                         # Let the user know how far through the search we have progressed
-                        self.search_progress_bar.setValue(int(100 / (self.repos_tbl.rowCount() + 1)))
+                        self.progress_bar.setValue(int(100 / (self.repos_tbl.rowCount() + 1)))
                         QtCore.QCoreApplication.processEvents()
                     except:
                         self.results_num_lbl.setText("Search error")
 
                         # Reset the progress bar so that it does not hang
-                        self.search_progress_bar.setTextVisible(False)
-                        self.search_progress_bar.setValue(0)
+                        self.progress_bar.setTextVisible(False)
+                        self.progress_bar.setValue(0)
                         QtCore.QCoreApplication.processEvents()
 
                     # If there was a response, process it
@@ -862,8 +854,8 @@ class OCCIWorkbench ( Workbench ):
                                 FreeCAD.Console.PrintError("OCCI ERROR: The response from the server did not have the required information.\r\n")
 
                                 # Reset the progress bar so that it does not hang
-                                self.search_progress_bar.setTextVisible(False)
-                                self.search_progress_bar.setValue(0)
+                                self.progress_bar.setTextVisible(False)
+                                self.progress_bar.setValue(0)
                                 QtCore.QCoreApplication.processEvents()
 
                                 return
@@ -901,12 +893,12 @@ class OCCIWorkbench ( Workbench ):
         self.results_tbl.resizeColumnToContents(2)
 
         # Give the user a flash of 100%
-        self.search_progress_bar.setValue(100)
+        self.progress_bar.setValue(100)
         QtCore.QCoreApplication.processEvents()
 
         # Let the user know that the request is finished
-        self.search_progress_bar.setTextVisible(False)
-        self.search_progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setValue(0)
         QtCore.QCoreApplication.processEvents()
 
 
@@ -1021,8 +1013,8 @@ class OCCIWorkbench ( Workbench ):
         from PySide import QtCore
 
         # Let the user know that something is going on
-        self.search_progress_bar.setTextVisible(True)
-        self.search_progress_bar.setValue(5)
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setValue(5)
         QtCore.QCoreApplication.processEvents()
 
         # Get the STEP download URL with current parameters
@@ -1032,7 +1024,7 @@ class OCCIWorkbench ( Workbench ):
         self.temp_file = tempfile.NamedTemporaryFile(suffix='.step', delete=False, mode='wb')
 
         # Let the user know that something is going on
-        self.search_progress_bar.setValue(10)
+        self.progress_bar.setValue(10)
         QtCore.QCoreApplication.processEvents()
 
         # A progress indicator
@@ -1045,8 +1037,8 @@ class OCCIWorkbench ( Workbench ):
                 for chunk in response.iter_content(chunk_size=8192):
                     # Let the user know that work is being done
                     progress += 10
-                    self.search_progress_bar.setTextVisible(True)
-                    self.search_progress_bar.setValue(progress)
+                    self.progress_bar.setTextVisible(True)
+                    self.progress_bar.setValue(progress)
                     QtCore.QCoreApplication.processEvents()
 
                     self.temp_file.write(chunk)
@@ -1062,12 +1054,12 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being downloaded. Please contact the server administrator.\r\n")
 
         # Give the user a flash of 100% complete
-        self.search_progress_bar.setValue(100)
+        self.progress_bar.setValue(100)
         QtCore.QCoreApplication.processEvents()
 
         # Let the user know that the request is done
-        self.search_progress_bar.setTextVisible(False)
-        self.search_progress_bar.setValue(0)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setValue(0)
         QtCore.QCoreApplication.processEvents()
 
         # Close the file so that it can be opened somewhere else
