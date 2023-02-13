@@ -671,14 +671,6 @@ class OCCIWorkbench ( Workbench ):
                     new_row_index = row_index
                     break
 
-            # Resize the table up to a maximum of 2 rows
-            self.repos_tbl.setMinimumHeight(2 * 40.5)
-            self.repos_tbl.setMaximumHeight(2 * 40.5)
-
-            # To force the toggle widget and its layout to update
-            self.ToggleRepoWidgets()
-            self.ToggleRepoWidgets()
-
             # Add a new set of widgets to the last line
             new_chkbox = QtGui.QCheckBox(Checked=True)
 
@@ -705,6 +697,9 @@ class OCCIWorkbench ( Workbench ):
             self.repos_tbl.setCellWidget(new_row_index, 1, new_name_txt)
             self.repos_tbl.setCellWidget(new_row_index, 2, new_curator_txt)
             self.repos_tbl.setCellWidget(new_row_index, 3, self.remove_buttons[new_row_index])
+
+            # Resize the table up to a maximum of 2 rows
+            self.ResizeReposTable()
 
             # Save the new repository's information in the settings
             settings = QtCore.QSettings("OCCI", "occi-freecad-plugin")
@@ -756,6 +751,34 @@ class OCCIWorkbench ( Workbench ):
         self.SearchComponents()
 
 
+    def ResizeResultsTable(self):
+        """
+        Handles the task of resizing the search results table height to fit an
+        appropriate number of rows.
+        """
+
+        # Resize each row to fit its contents, which should all be the same height, based on font size
+        for row_index in range(0, self.results_tbl.rowCount()):
+            self.results_tbl.resizeRowToContents(row_index)
+
+        # Set the size of the table appropriately, up to a max number of rows
+        max_results_rows = 5 # Including the header row
+        max_results_row_height = self.results_tbl.rowHeight(0)
+        num_results = self.results_tbl.rowCount() + 1
+        if num_results == 0:
+            self.results_tbl.setMinimumHeight(max_results_row_height * 2)
+            self.results_tbl.setMaximumHeight(max_results_row_height * 2)
+        elif num_results >= 1 and num_results <= max_results_rows:
+            self.results_tbl.setMinimumHeight(num_results * max_results_row_height)
+            self.results_tbl.setMaximumHeight(num_results * max_results_row_height)
+        else:
+            self.results_tbl.setMinimumHeight(max_results_rows * max_results_row_height)
+            self.results_tbl.setMaximumHeight(max_results_rows * max_results_row_height)
+
+        # Work-around to make sure resizing changes take effect
+        self.ToggleCompsWidgets()
+        self.ToggleCompsWidgets()
+
     def SearchComponents(self):
         """
         Searches the specified repositories for the given component.
@@ -774,9 +797,13 @@ class OCCIWorkbench ( Workbench ):
         self.search_progress_bar.setValue(5)
         QtCore.QCoreApplication.processEvents()
 
+        # Reset the table to only having one row
+        self.results_tbl.setRowCount(1)
+
         # Walk through each row of the repositories table and search them
         row_count = self.repos_tbl.rowCount()
         results_row = 0
+        num_results = 0
         for row in range(0, row_count):
             # If there is something in the row, extract data from the row
             chkbox = self.repos_tbl.cellWidget(row, 0)
@@ -814,10 +841,11 @@ class OCCIWorkbench ( Workbench ):
                         self.json_search_results = json.loads(response.content)
 
                         # Let the user know how many search results there are
-                        if (len(self.json_search_results) == 1):
-                            self.results_num_lbl.setText(str(len(self.json_search_results)) + " result")
+                        num_results += len(self.json_search_results)
+                        if (num_results == 1):
+                            self.results_num_lbl.setText(str(num_results) + " result")
                         else:
-                            self.results_num_lbl.setText(str(len(self.json_search_results)) + " results")
+                            self.results_num_lbl.setText(str(num_results) + " results")
 
                         # Add all the search results to the table
                         for json_result in self.json_search_results:
@@ -864,9 +892,8 @@ class OCCIWorkbench ( Workbench ):
                     else:
                         self.results_num_lbl.setText("Search error")
 
-        # Set the table height up to 4 rows
-        if self.results_tbl.rowCount() > 0 and self.results_tbl.rowCount() < 5:
-            self.results_tbl.setMaximumHeight(self.results_tbl.rowCount() * 50)
+        # Resize the table height to fit the contents appropriately
+        self.ResizeResultsTable()
 
         # Make sure all the columns are the correct size
         self.results_tbl.resizeColumnToContents(0)
@@ -1189,6 +1216,40 @@ class OCCIWorkbench ( Workbench ):
                 self.results_tbl.cellWidget(row_index, 2).setStyleSheet("background-color:#FFFFFF")
 
 
+    def ResizeReposTable(self):
+        """
+        When data is added to or removed from the table, its size must be set appropriately.
+        """
+
+        # Resize each row to fit its contents, which should all be the same height, based on font size
+        for row_index in range(0, self.repos_tbl.rowCount()):
+            self.repos_tbl.resizeRowToContents(row_index)
+
+        # Get the height of the header and the height of the first row in order to set a proper size for the table
+        max_results_rows = 2
+        row_height = 24
+        header_height = self.repos_tbl.verticalHeader().sectionSize(0)
+        if self.repos_tbl.rowCount() > 0:
+            row_height = self.repos_tbl.cellWidget(0, 1).sizeHint().height() + 5
+
+
+        max_results_table_height = header_height + (row_height * 2)
+        num_repos = self.repos_tbl.rowCount()
+        if num_repos <= 1:
+            self.repos_tbl.setMinimumHeight(header_height + row_height)
+            self.repos_tbl.setMaximumHeight(header_height + row_height)
+        elif num_repos > 1 and num_repos <= max_results_rows:
+            self.repos_tbl.setMinimumHeight(header_height + ((row_height + 3) * num_repos))
+            self.repos_tbl.setMaximumHeight(header_height + ((row_height + 3) * num_repos))
+        else:
+            self.repos_tbl.setMinimumHeight(max_results_table_height)
+            self.repos_tbl.setMaximumHeight(max_results_table_height)
+
+        # To force the toggle widget and its layout to update
+        self.ToggleRepoWidgets()
+        self.ToggleRepoWidgets()
+
+
     def RemoveRepository(self, button):
         """
         Handles the removal of a repository from the repositories table.
@@ -1215,17 +1276,8 @@ class OCCIWorkbench ( Workbench ):
                 settings.setValue('data/repo_list', repo_list)
                 settings.sync()
 
-                # Resize the table up to a maximum of 2 rows
-                if self.repos_tbl.rowCount() == 1:
-                    self.repos_tbl.setMinimumHeight(45)
-                    self.repos_tbl.setMaximumHeight(45)
-                else:
-                    self.repos_tbl.setMinimumHeight(2 * 40.5)
-                    self.repos_tbl.setMaximumHeight(2 * 40.5)
-
-                # To force the toggle widget and its layout to update
-                self.ToggleRepoWidgets()
-                self.ToggleRepoWidgets()
+                # Make sure the table is the appropriate height
+                self.ResizeReposTable()
 
 
     def RemovePreviousPresets(self):
