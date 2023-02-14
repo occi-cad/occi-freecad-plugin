@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # OCCI gui init module
 
+
 class OCCIWorkbench ( Workbench ):
     "OCCI workbench object"
     # The following line will not work correctly in some cases when running a dev setup
@@ -588,9 +589,7 @@ class OCCIWorkbench ( Workbench ):
         #     return
 
         # Let the user know that something is going on
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setValue(20)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(20)
 
         # Attempt to load the URL
         response = None
@@ -602,14 +601,11 @@ class OCCIWorkbench ( Workbench ):
         # If there was no response, there is no reason to continue
         if response == None:
             # Make sure that the progress bar does not hang
-            self.progress_bar.setTextVisible(False)
-            self.progress_bar.setValue(0)
-            QtCore.QCoreApplication.processEvents()
+            self.ResetProgress()
             return
 
         # Let the user know there has been progress
-        self.progress_bar.setValue(70)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(70)
 
         # Check the status code to see if the request succeeded
         if response.status_code == 200:
@@ -620,9 +616,7 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintError("OCCI ERROR: There was an error parsing the JSON content. Please ensure that the provided URL points to a valid OCCI server.\r\n")
 
                 # Make sure that the progress bar does not hang
-                self.progress_bar.setTextVisible(False)
-                self.progress_bar.setValue(0)
-                QtCore.QCoreApplication.processEvents()
+                self.ResetProgress()
 
                 return
 
@@ -631,9 +625,7 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintError("OCCI ERROR: The OCCI repository is not presenting the correct data to be added.\r\n")
 
                 # Make sure that the progress bar does not hang
-                self.progress_bar.setTextVisible(False)
-                self.progress_bar.setValue(0)
-                QtCore.QCoreApplication.processEvents()
+                self.ResetProgress()
 
                 return
 
@@ -642,9 +634,7 @@ class OCCIWorkbench ( Workbench ):
                 FreeCAD.Console.PrintWarning("OCCI: Duplicate repository entries are not permitted. If this repository server should not be a duplicate, contact the system administrator to make sure they do not have a conflicting name.\r\n")
 
                 # Make sure that the progress bar does not hang
-                self.progress_bar.setTextVisible(False)
-                self.progress_bar.setValue(0)
-                QtCore.QCoreApplication.processEvents()
+                self.ResetProgress()
 
                 return
 
@@ -711,13 +701,10 @@ class OCCIWorkbench ( Workbench ):
             FreeCAD.Console.PrintError("OCCI ERROR: There was a general error while trying to load the OCCI repository data.\r\n")
 
         # Try to give the user a flash of 100%
-        self.progress_bar.setValue(100)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(100)
 
         # Let the user know that the get request is done
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setValue(0)
-        QtCore.QCoreApplication.processEvents()
+        self.ResetProgress()
 
 
     def LoadDefaults(self):
@@ -785,9 +772,7 @@ class OCCIWorkbench ( Workbench ):
         self.results_num_lbl.setText("Searching...")
 
         # Let the user know that something is going on
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setValue(5)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(5)
 
         # Reset the table to only having one row
         self.results_tbl.setRowCount(1)
@@ -810,22 +795,18 @@ class OCCIWorkbench ( Workbench ):
                     response = None
                     try:
                         # Let the user know progress is being made
-                        self.progress_bar.setValue(10)
-                        QtCore.QCoreApplication.processEvents()
+                        self.SetProgress(10)
 
                         # Request the search from the server
                         response = requests.get(models_url + '/search?q=' + self.search_txt.text())
 
                         # Let the user know how far through the search we have progressed
-                        self.progress_bar.setValue(int(100 / (self.repos_tbl.rowCount() + 1)))
-                        QtCore.QCoreApplication.processEvents()
+                        self.SetProgress(int(100 / (self.repos_tbl.rowCount() + 1)))
                     except:
                         self.results_num_lbl.setText("Search error")
 
                         # Reset the progress bar so that it does not hang
-                        self.progress_bar.setTextVisible(False)
-                        self.progress_bar.setValue(0)
-                        QtCore.QCoreApplication.processEvents()
+                        self.ResetProgress()
 
                     # If there was a response, process it
                     if response != None and response.status_code == 200:
@@ -854,9 +835,7 @@ class OCCIWorkbench ( Workbench ):
                                 FreeCAD.Console.PrintError("OCCI ERROR: The response from the server did not have the required information.\r\n")
 
                                 # Reset the progress bar so that it does not hang
-                                self.progress_bar.setTextVisible(False)
-                                self.progress_bar.setValue(0)
-                                QtCore.QCoreApplication.processEvents()
+                                self.ResetProgress()
 
                                 return
 
@@ -893,13 +872,10 @@ class OCCIWorkbench ( Workbench ):
         self.results_tbl.resizeColumnToContents(2)
 
         # Give the user a flash of 100%
-        self.progress_bar.setValue(100)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(100)
 
         # Let the user know that the request is finished
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setValue(0)
-        QtCore.QCoreApplication.processEvents()
+        self.ResetProgress()
 
 
     def BuildSTEPURL(self, base_url):
@@ -1004,6 +980,36 @@ class OCCIWorkbench ( Workbench ):
         return None
 
 
+    def SetProgress(self, progress):
+        """
+        Wraps the methods used to update the progress bar value.
+        """
+        from PySide import QtCore
+
+        self.progress_bar.setTextVisible(True)
+        self.progress_bar.setValue(progress)
+        QtCore.QCoreApplication.processEvents()
+
+
+    def ResetProgress(self):
+        """
+        Allows the caller to reset the progress bar to 0% and hide it.
+        """
+
+        from PySide import QtCore
+
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setValue(0)
+        QtCore.QCoreApplication.processEvents()
+
+
+    def ModelReady(self):
+        """
+        Called by the threaded worked when a long-running model is ready for download.
+        """
+        self.ResetProgress()
+
+
     def DownloadModel(self, base_url):
         """
         Handles the task of downloading an OCCI component.
@@ -1011,11 +1017,13 @@ class OCCIWorkbench ( Workbench ):
         import tempfile
         import requests
         from PySide import QtCore
+        from Utils import Worker
+
+        is_bad_request = False
+        is_long_running = False
 
         # Let the user know that something is going on
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setValue(5)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(5)
 
         # Get the STEP download URL with current parameters
         download_url = self.BuildSTEPURL(base_url)
@@ -1024,46 +1032,69 @@ class OCCIWorkbench ( Workbench ):
         self.temp_file = tempfile.NamedTemporaryFile(suffix='.step', delete=False, mode='wb')
 
         # Let the user know that something is going on
-        self.progress_bar.setValue(10)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(10)
 
         # A progress indicator
         progress = 10
 
         # Request the STEP download from the OCCI server and account for large file size
-        with requests.get(download_url, stream=True) as response:
+        with requests.get(download_url, stream=True, allow_redirects=False) as response:
             if response.status_code == 200:
                 # with open(self.temp_file.name, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     # Let the user know that work is being done
                     progress += 10
-                    self.progress_bar.setTextVisible(True)
-                    self.progress_bar.setValue(progress)
-                    QtCore.QCoreApplication.processEvents()
+                    self.SetProgress(progress)
 
                     self.temp_file.write(chunk)
             elif response.status_code == 202:
-                FreeCAD.Console.PrintMessage("OCCI: Long runner script detected. Processing will continue in the background.\r\n")
-
+                pass
                 # Get the background process information
-                bg_info = response.json()
-                print(bg_info['celery_task_id'])
+                # bg_info = response.json()
+            elif response.status_code == 307:
+                # Get the information for the selected component
+                namespace = self.FindSelectedComponent()
+                json_result = self.FindMatchingJSON(namespace)
+
+                # Distinguish between a model version redirect and a long-running redirect
+                if 'location' in response.headers:
+                    if '/job/' in response.headers['location']:
+                        FreeCAD.Console.PrintMessage("OCCI: Long runner script detected. Processing will continue in the background.\r\n")
+
+                        # Figure out what the base server URL is so we can append the job location to it
+                        server_url = base_url.replace('/' + json_result['namespace'] + '/' + json_result['version'], '')
+                        job_url = server_url + response.headers['Location']
+                        print(job_url)
+                        # Set up the worker that will keep checking to see if the model is ready
+                        self.worker = Worker()
+                        self.worker.updateProgress.connect(self.SetProgress)
+                        self.worker.modelReady.connect(self.ModelReady)
+                        self.worker.check_url = job_url
+                        self.worker.start()
+
+                        is_long_running = True
             elif response.status_code == 404:
                 FreeCAD.Console.PrintError("OCCI ERROR: The model you have requested does not seem to exist on the server.\r\n")
+                is_bad_request = True
             elif response.status_code == 500:
                 FreeCAD.Console.PrintError("OCCI ERROR: There was an error on the server that prevented the model from being downloaded. Please contact the server administrator.\r\n")
+                is_bad_request = True
+            else:
+                FreeCAD.Console.PrintError("OCCI ERROR: Status code unknown: " + str(response.status_code))
+                is_bad_request = True
 
         # Give the user a flash of 100% complete
-        self.progress_bar.setValue(100)
-        QtCore.QCoreApplication.processEvents()
+        self.SetProgress(100)
 
         # Let the user know that the request is done
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setValue(0)
-        QtCore.QCoreApplication.processEvents()
+        self.ResetProgress()
 
         # Close the file so that it can be opened somewhere else
         self.temp_file.close()
+
+        # Check to see if we have a long running or bad request
+        if is_long_running or is_bad_request:
+            return None
 
         return self.temp_file.name
 
@@ -1079,7 +1110,11 @@ class OCCIWorkbench ( Workbench ):
 
         # Make sure there was a row selected
         if namespace != None:
-            step_file_path = self.DownloadModel(json_result['url'])
+            step_file_path = self.DownloadModel(json_result['url'] + '/' + json_result['version'])
+
+            # If we did not get a path back, it was a bad or long-running request
+            if step_file_path == None:
+                return
 
             # If there is not an active document, add one
             is_new_doc = False
@@ -1175,7 +1210,11 @@ class OCCIWorkbench ( Workbench ):
 
         # Make sure there was a row selected
         if namespace != None:
-            step_file_path = self.DownloadModel(json_result['url'])
+            step_file_path = self.DownloadModel(json_result['url'] + '/' + json_result['version'])
+
+            # If we did not get a path back, it was a bad or long-running request
+            if step_file_path == None:
+                return
 
             # Find the the matching object in the active document
             feature = ad.getObjectsByLabel(namespace.replace('/', '_'))[0]
