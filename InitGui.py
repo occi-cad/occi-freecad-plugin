@@ -196,7 +196,7 @@ class OCCIWorkbench ( Workbench ):
                 self.repos_tbl.setMaximumHeight(2 * 40.5)
 
             # Set the 'use' checkbox for the repo
-            self.use_checks.append(QtGui.QCheckBox(objectName=repo['library'] + "_" + repo['maintainer']))
+            self.use_checks.append(QtGui.QCheckBox(objectName=repo['library'] + "~" + repo['maintainer']))
             self.use_checks[-1].setChecked(repo['use'])
             self.use_checks[-1].stateChanged.connect(partial(self.UseCheckboxChanged, self.use_checks[-1]))
             self.repos_tbl.setCellWidget(row, 0, self.use_checks[-1])
@@ -217,7 +217,7 @@ class OCCIWorkbench ( Workbench ):
             self.repos_tbl.setCellWidget(row, 2, cur_host_txt)
 
             # Create the remove button for this repository
-            self.remove_buttons.append(QtGui.QPushButton(objectName=repo['library'] + "_" + repo['maintainer']))
+            self.remove_buttons.append(QtGui.QPushButton(objectName=repo['library'] + "~" + repo['maintainer']))
             self.remove_buttons[row].setFlat(True)
             self.remove_buttons[row].setIcon(QtGui.QIcon(':/icons/delete.svg'))
             self.remove_buttons[row].clicked.connect(partial(self.RemoveRepository, self.remove_buttons[row]))
@@ -679,7 +679,7 @@ class OCCIWorkbench ( Workbench ):
             new_curator_txt.setAlignment(QtCore.Qt.AlignCenter)
 
             # The remove button
-            self.remove_buttons.append(QtGui.QPushButton(objectName=server_info['library'] + "_" + server_info['maintainer']))
+            self.remove_buttons.append(QtGui.QPushButton(objectName=server_info['library'] + "~" + server_info['maintainer']))
             self.remove_buttons[new_row_index].setFlat(True)
             self.remove_buttons[new_row_index].setIcon(QtGui.QIcon(':/icons/delete.svg'))
             self.remove_buttons[new_row_index].clicked.connect(partial(self.RemoveRepository, self.remove_buttons[new_row_index]))
@@ -1119,8 +1119,8 @@ class OCCIWorkbench ( Workbench ):
         from PySide.QtCore import QSettings
 
         # We need to extract the library and maintainer to match this checkbox to its repo row
-        library = checkbox.objectName().split("_")[0]
-        maintainer = checkbox.objectName().split("_")[1]
+        library = checkbox.objectName().split("~")[0]
+        maintainer = checkbox.objectName().split("~")[1]
 
         # Try to find the matching row index
         row_index = self.FindRepositoryRow(library, maintainer)
@@ -1250,8 +1250,8 @@ class OCCIWorkbench ( Workbench ):
 
         # Retrieve the row index
         if button.objectName() != None:
-            library = button.objectName().split("_")[0]
-            maintainer = button.objectName().split("_")[1]
+            library = button.objectName().split("~")[0]
+            maintainer = button.objectName().split("~")[1]
 
             # Try to find the matching row index
             row_index = self.FindRepositoryRow(library, maintainer)
@@ -1489,7 +1489,7 @@ class OCCIWorkbench ( Workbench ):
                 col += 1
 
                 # Object name for button based on row/column so we can use it as a key
-                self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn_" + str(row) + "_" + str(col)))
+                self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn~" + str(row) + "~" + str(col)))
 
                 # Save the preset associated with this button
                 self.presets["btn_" + str(row) + "_" + str(col)] = result["param_presets"][preset]
