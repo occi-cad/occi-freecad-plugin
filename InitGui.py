@@ -1015,6 +1015,17 @@ class OCCIWorkbench ( Workbench ):
         self.LoadComponent()
 
 
+    def ModelTimedOut(self):
+        """
+        Called when a model script takes too long to complete.
+        """
+
+        # Clear the progress bar of whatever progress we set while the job was running
+        self.ResetProgress()
+
+        FreeCAD.Console.PrintError("OCCI ERROR: Model execution has timed out because it took too long to complete.\r\n")
+
+
     def DownloadModel(self, base_url):
         """
         Handles the task of downloading an OCCI component.
@@ -1070,6 +1081,7 @@ class OCCIWorkbench ( Workbench ):
                         self.worker = Worker()
                         self.worker.updateProgress.connect(self.SetProgress)
                         self.worker.modelReady.connect(self.ModelReady)
+                        self.worker.modelTimedOut.connect(self.ModelTimedOut)
                         self.worker.job_url = job_url
                         self.worker.model_url = download_url
                         self.worker.start()

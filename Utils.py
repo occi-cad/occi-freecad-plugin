@@ -13,6 +13,7 @@ class Worker(QtCore.QThread):
     #This is the signal that will be emitted during the processing.
     updateProgress = QtCore.Signal(int)
     modelReady = QtCore.Signal(str)
+    modelTimedOut = QtCore.Signal()
 
     def __init__(self):
         from PySide import QtCore
@@ -50,6 +51,7 @@ class Worker(QtCore.QThread):
             # Trap door to keep execution from going on forever
             # Capped at 10 minutes
             if i >= 120:
+                self.modelTimedOut.emit()
                 break
 
             time.sleep(5.0)
