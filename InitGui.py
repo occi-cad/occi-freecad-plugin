@@ -1003,11 +1003,16 @@ class OCCIWorkbench ( Workbench ):
         QtCore.QCoreApplication.processEvents()
 
 
-    def ModelReady(self):
+    def ModelReady(self, model_url):
         """
         Called by the threaded worked when a long-running model is ready for download.
         """
+
+        # Clear the progress bar of whatever progress we set while the job was running
         self.ResetProgress()
+
+        # Load the newly finished component
+        self.LoadComponent()
 
 
     def DownloadModel(self, base_url):
@@ -1047,10 +1052,6 @@ class OCCIWorkbench ( Workbench ):
                     self.SetProgress(progress)
 
                     self.temp_file.write(chunk)
-            elif response.status_code == 202:
-                pass
-                # Get the background process information
-                # bg_info = response.json()
             elif response.status_code == 307:
                 # Get the information for the selected component
                 namespace = self.FindSelectedComponent()
@@ -1059,17 +1060,18 @@ class OCCIWorkbench ( Workbench ):
                 # Distinguish between a model version redirect and a long-running redirect
                 if 'location' in response.headers:
                     if '/job/' in response.headers['location']:
-                        FreeCAD.Console.PrintMessage("OCCI: Long runner script detected. Processing will continue in the background.\r\n")
+                        FreeCAD.Console.PrintMessage("OCCI: Long running script detected. Processing will continue in the background.\r\n")
 
                         # Figure out what the base server URL is so we can append the job location to it
                         server_url = base_url.replace('/' + json_result['namespace'] + '/' + json_result['version'], '')
                         job_url = server_url + response.headers['Location']
-                        print(job_url)
+
                         # Set up the worker that will keep checking to see if the model is ready
                         self.worker = Worker()
                         self.worker.updateProgress.connect(self.SetProgress)
                         self.worker.modelReady.connect(self.ModelReady)
-                        self.worker.check_url = job_url
+                        self.worker.job_url = job_url
+                        self.worker.model_url = download_url
                         self.worker.start()
 
                         is_long_running = True
