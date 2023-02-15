@@ -1512,6 +1512,8 @@ class OCCIWorkbench ( Workbench ):
                 elif result['params'][param]['type'] == 'text':
                     # A text field
                     value_widget = QtGui.QLineEdit()
+                    if 'default' in result['params'][param] and result['params'][param]['default'] != None:
+                        value_widget.setText(str(result['params'][param]['default']))
                     value_widget.setPlaceholderText("Parameter Text")
                     value_widget.textChanged.connect(self.UpdateModelWithParameters)
                     self.params_tbl.setCellWidget(row_index, 2, value_widget)
@@ -1542,7 +1544,7 @@ class OCCIWorkbench ( Workbench ):
                 col += 1
 
                 # Object name for button based on row/column so we can use it as a key
-                self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn~" + str(row) + "~" + str(col)))
+                self.presets_controls.append(QtGui.QPushButton(text=preset, objectName="btn_" + str(row) + "_" + str(col)))
 
                 # Save the preset associated with this button
                 self.presets["btn_" + str(row) + "_" + str(col)] = result["param_presets"][preset]
