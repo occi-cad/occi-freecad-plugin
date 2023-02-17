@@ -315,9 +315,9 @@ class OCCIWorkbench ( Workbench ):
         #####################################################################
 
         # Set up the add component controls widget
-        config_controls_widget = QtGui.QWidget()
+        self.config_controls_widget = QtGui.QWidget()
         self.config_controls_layout = QtGui.QVBoxLayout()
-        config_controls_widget.setLayout(self.config_controls_layout)
+        self.config_controls_widget.setLayout(self.config_controls_layout)
 
         # Add the description labels
         self.selected_comp_lbl = QtGui.QLabel(text="No component selected")
@@ -455,7 +455,7 @@ class OCCIWorkbench ( Workbench ):
         tree_widget.setItemWidget(self.conf_widget_item, 0, self.conf_toggle_widget)
         tree_widget.setItemWidget(repo_controls_item, 0, repos_controls_widget)
         tree_widget.setItemWidget(comps_controls_item, 0, comps_controls_widget)
-        tree_widget.setItemWidget(config_controls_item, 0, config_controls_widget)
+        tree_widget.setItemWidget(config_controls_item, 0, self.config_controls_widget)
 
         # Expand the top level tree widgets as appropriate
         self.repo_widget_item.setExpanded(settings.value('ui/repos_expanded') == 'yes')
@@ -1414,15 +1414,25 @@ class OCCIWorkbench ( Workbench ):
             self.params_tbl.setMinimumHeight(max_results_row_height)
             self.params_tbl.setMaximumHeight(max_results_row_height)
         elif num_results >= 1 and num_results <= max_results_rows:
+            # Toggling the collapsible widget causes strange resizing issues with just one row
+            if num_results == 1:
+                # Work-around to make sure resizing changes take effect
+                self.config_controls_widget.updateGeometry()
+                self.config_controls_layout.update()
+            else:
+                # Work-around to make sure resizing changes take effect
+                self.ToggleParamsWidgets()
+                self.ToggleParamsWidgets()
+
             self.params_tbl.setMinimumHeight(num_results * max_results_row_height)
             self.params_tbl.setMaximumHeight(num_results * max_results_row_height)
         else:
             self.params_tbl.setMinimumHeight(max_results_rows * max_results_row_height)
             self.params_tbl.setMaximumHeight(max_results_rows * max_results_row_height)
 
-        # Work-around to make sure resizing changes take effect
-        self.ToggleParamsWidgets()
-        self.ToggleParamsWidgets()
+            # Work-around to make sure resizing changes take effect
+            self.ToggleParamsWidgets()
+            self.ToggleParamsWidgets()
 
 
     def LoadParameters(self):
