@@ -916,6 +916,10 @@ class OCCIWorkbench ( Workbench ):
                 # We have to extract the value different ways from different controls
                 if isinstance(value_widget, QtGui.QSpinBox) or isinstance(value_widget, QtGui.QDoubleSpinBox):
                     value = value_widget.value()
+                elif isinstance(value_widget, QtGui.QComboBox):
+                    value = value_widget.currentText()
+                elif isinstance(value_widget, QtGui.QCheckBox):
+                    value = str(value_widget.isChecked())
                 else:
                     value = value_widget.text()
 
@@ -1538,6 +1542,19 @@ class OCCIWorkbench ( Workbench ):
                     value_widget.setPlaceholderText("Parameter Text")
                     value_widget.textChanged.connect(self.UpdateModelWithParameters)
                     self.params_tbl.setCellWidget(row_index, 2, value_widget)
+                elif result['params'][param]['type'] == 'options':
+                    # An option box
+                    value_widget = QtGui.QComboBox()
+                    for option in result['params'][param]['options']:
+                        value_widget.addItem(option)
+                    value_widget.currentIndexChanged.connect(self.UpdateModelWithParameters)
+                    self.params_tbl.setCellWidget(row_index, 2, value_widget)
+                elif result['params'][param]['type'] == 'boolean':
+                    value_widget = QtGui.QCheckBox()
+                    value_widget.setChecked(result['params'][param]['default'])
+                    self.params_tbl.setCellWidget(row_index, 2, value_widget)
+                else:
+                    FreeCAD.Console.PrintError("OCCI ERROR: Parameter type " + result['params'][param]['type'] + " not recognized")
 
                 row_index += 1
 
