@@ -20,6 +20,17 @@ class OCCIWorkbench ( Workbench ):
     def Initialize(self):
         from PySide.QtCore import QSettings
 
+        # Ensure that the requests module is available
+        try:
+            import requests
+        except:
+            from PySide import QtGui
+            msg_box = QtGui.QMessageBox()
+            msg_box.setText("The requests Python module is not installed.")
+            msg_box.setInformativeText("Please configure your addons manager (Tools->Addon manager) to install it and restart FreeCAD.")
+            msg_box.addButton(QtGui.QMessageBox.Ok)
+            ret = msg_box.exec_()
+
         # load the module
         import OCCIGui
         self.appendMenu('OCCI',['OCCI_Reset_Repos'])
