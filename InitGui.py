@@ -190,6 +190,9 @@ class OCCIWorkbench ( Workbench ):
         header.setSectionResizeMode(2, QtGui.QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(3, QtGui.QHeaderView.ResizeMode.ResizeToContents)
 
+        # Header row height to try to resize the table correctly
+        header_row_height = self.repos_tbl.rowHeight(0)
+
         # Load the default repositories into the table
         row = 0
         # self.default_settings = self.LoadDefaults()
@@ -201,11 +204,12 @@ class OCCIWorkbench ( Workbench ):
 
             # Resize the table up to a maximum of 2 rows
             if self.repos_tbl.rowCount() == 1:
-                self.repos_tbl.setMinimumHeight(45)
-                self.repos_tbl.setMaximumHeight(45)
+                self.repos_tbl.setMinimumHeight(header_row_height + 20)
+                self.repos_tbl.setMaximumHeight(header_row_height + 20)
             elif self.repos_tbl.rowCount() == 2:
-                self.repos_tbl.setMinimumHeight(2 * 40.5)
-                self.repos_tbl.setMaximumHeight(2 * 40.5)
+                max_results_row_height = self.repos_tbl.rowHeight(1)
+                self.repos_tbl.setMinimumHeight(header_row_height + 2 * max_results_row_height)
+                self.repos_tbl.setMaximumHeight(header_row_height + 2 * max_results_row_height)
 
             # Set the 'use' checkbox for the repo
             self.use_checks.append(QtGui.QCheckBox(objectName=repo['library'] + "~" + repo['maintainer']))
