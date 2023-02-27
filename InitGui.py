@@ -1408,6 +1408,10 @@ class OCCIWorkbench ( Workbench ):
                     # Set the value differently for text vs a number
                     if param_type == "text":
                         value_widget.setText(self.presets[preset_key][key])
+                    elif param_type == "boolean":
+                        value_widget.setChecked(self.presets[preset_key][key])
+                    elif param_type == "options":
+                        value_widget.setCurrentText(self.presets[preset_key][key])
                     else:
                         value_widget.setValue(self.presets[preset_key][key])
 
