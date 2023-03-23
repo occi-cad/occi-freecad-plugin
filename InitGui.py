@@ -20,6 +20,10 @@ class OCCIWorkbench ( Workbench ):
     def Initialize(self):
         from PySide.QtCore import QSettings
 
+        # Make sure the requests module is present
+        extra_libs_path = os.path.join(FreeCAD.getUserAppDataDir(), *["Mod", "occi-freecad-plugin", "ext_lib"])
+        sys.path.append(extra_libs_path)
+
         # Ensure that the requests module is available
         try:
             import requests
@@ -1521,7 +1525,7 @@ class OCCIWorkbench ( Workbench ):
                 self.params_tbl.setCellWidget(row_index, 0, name_lbl)
 
                 # Add the description widget in the second column
-                desc_lbl = QtGui.QLabel(text=result['description'])
+                desc_lbl = QtGui.QLabel(text=result['params'][param]['description'])
                 desc_lbl.setAlignment(QtCore.Qt.AlignCenter)
                 self.params_tbl.setCellWidget(row_index, 1, desc_lbl)
 
